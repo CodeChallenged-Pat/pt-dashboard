@@ -1,0 +1,66 @@
+# PT Dashboard — Development Environment
+# Run on Linux NUC or local machine for dev/staging
+# Usage: docker-compose up -d
+
+version: "3.8"
+
+services:
+  # ─── Cloud API (FastAPI) ───
+  cloud-api:
+    build:
+      context: ./cloud-api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://ptdashboard:ptdashboard@db:5432/ptdashboard
+      - JWT_SECRET=dev-secret-change-in-production
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./cloud-api:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ─── Dashboard Frontend (Vite dev server) ───
+  dashboard-web:
+    build:
+      context: ./dashboard-web
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ./dashboard-web:/app
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0
+
+  # ─── Postgres (Consolidated DB) ───
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=ptdashboard
+      - POSTGRES_PASSWORD=ptdashboard
+      - POSTGRES_DB=ptdashboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - pt_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ptdashboard"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─── Adminer (DB admin UI, dev only) ───
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    depends_on:
+      - db
+
+volumes:
+  pt_db_data:
