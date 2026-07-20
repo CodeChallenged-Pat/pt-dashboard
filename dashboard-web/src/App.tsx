@@ -37,6 +37,10 @@ export default function App() {
     const saved = localStorage.getItem("pt-dashboard-colwidth");
     return saved ? Number(saved) : 280;
   });
+  const [globalHeight, setGlobalHeight] = useState(() => {
+    const saved = localStorage.getItem("pt-dashboard-height");
+    return saved ? Number(saved) : 0;  // 0 = use per-panel heights
+  });
   const [winWidth, setWinWidth] = useState(window.innerWidth);
 
   // Persist
@@ -44,6 +48,7 @@ export default function App() {
   useEffect(() => { localStorage.setItem("pt-dashboard-layout", layoutMode); }, [layoutMode]);
   useEffect(() => { localStorage.setItem("pt-dashboard-gap", String(gapSize)); }, [gapSize]);
   useEffect(() => { localStorage.setItem("pt-dashboard-colwidth", String(colWidth)); }, [colWidth]);
+  useEffect(() => { localStorage.setItem("pt-dashboard-height", String(globalHeight)); }, [globalHeight]);
 
   // Track window width for column count
   useEffect(() => {
@@ -136,6 +141,17 @@ export default function App() {
             </label>
           )}
 
+          {/* Global height slider */}
+          <label className="flex items-center gap-1.5 text-xs text-gray-400">
+            H
+            <input
+              type="range" min={0} max={400} step={10} value={globalHeight}
+              onChange={(e) => setGlobalHeight(Number(e.target.value))}
+              className="w-16 accent-blue-500"
+            />
+            <span className="text-gray-500 w-8">{globalHeight === 0 ? "auto" : `${globalHeight}px`}</span>
+          </label>
+
           <button
             onClick={addPanel}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
@@ -169,6 +185,7 @@ export default function App() {
             key={panel.id}
             config={panel}
             layoutMode={layoutMode}
+            globalHeight={globalHeight}
             onUpdate={(changes) => updatePanel(panel.id, changes)}
             onEdit={() => setEditPanel(panel)}
             onRemove={() => removePanel(panel.id)}

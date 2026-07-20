@@ -15,17 +15,18 @@ type LayoutMode = "natural" | "justify";
 interface Props {
   config: PanelConfig;
   layoutMode: LayoutMode;
+  globalHeight: number;
   onUpdate: (changes: Partial<PanelConfig>) => void;
   onEdit: () => void;
   onRemove: () => void;
 }
 
-export default function PanelCard({ config, layoutMode, onEdit, onRemove }: Props) {
+export default function PanelCard({ config, layoutMode, globalHeight, onEdit, onRemove }: Props) {
   const { priority, title, width, height, cornerRadius, color, content } = config;
   const glowColor = color + "33";
-
-  // In justify mode, the card fills its grid cell — width becomes 100%, height from config
   const isJustify = layoutMode === "justify";
+  // Use global height if set, otherwise per-panel height
+  const effectiveHeight = globalHeight > 0 ? globalHeight : height;
 
   return (
     <div
@@ -33,7 +34,7 @@ export default function PanelCard({ config, layoutMode, onEdit, onRemove }: Prop
       style={{
         // Natural mode: explicit width. Justify mode: fill grid cell
         width: isJustify ? "100%" : `${width}px`,
-        height: `${height}px`,
+        height: `${effectiveHeight}px`,
         minWidth: isJustify ? 0 : "160px",
         minHeight: "120px",
         // In justify mode, let the grid handle positioning
