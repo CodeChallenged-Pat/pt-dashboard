@@ -15,33 +15,35 @@ type LayoutMode = "natural" | "justify";
 interface Props {
   config: PanelConfig;
   layoutMode: LayoutMode;
-  globalHeight: number;
+  isSelected: boolean;
+  globalEditMode: boolean;
+  onClick: () => void;
   onUpdate: (changes: Partial<PanelConfig>) => void;
   onEdit: () => void;
   onRemove: () => void;
 }
 
-export default function PanelCard({ config, layoutMode, globalHeight, onEdit, onRemove }: Props) {
+export default function PanelCard({ config, layoutMode, isSelected, globalEditMode, onClick, onEdit, onRemove }: Props) {
   const { priority, title, width, height, cornerRadius, color, content } = config;
   const glowColor = color + "33";
   const isJustify = layoutMode === "justify";
-  // Use global height if set, otherwise per-panel height
-  const effectiveHeight = globalHeight > 0 ? globalHeight : height;
 
   return (
     <div
-      className="relative group transition-all duration-300 ease-in-out"
+      data-panel-id={config.priority}
+      className={`relative group transition-all duration-300 ease-in-out ${
+        globalEditMode ? "cursor-pointer" : ""
+      }`}
       style={{
-        // Natural mode: explicit width. Justify mode: fill grid cell
         width: isJustify ? "100%" : `${width}px`,
-        height: `${effectiveHeight}px`,
+        height: `${height}px`,
         minWidth: isJustify ? 0 : "160px",
         minHeight: "120px",
-        // In justify mode, let the grid handle positioning
         flexShrink: isJustify ? undefined : 0,
       }}
+      onClick={globalEditMode ? onClick : undefined}
     >
-      {/* Glow effect */}
+      {/* Glow */}
       <div
         className="absolute inset-0 blur-xl opacity-30 transition-opacity group-hover:opacity-50"
         style={{ backgroundColor: glowColor, borderRadius: `${cornerRadius}px` }}
@@ -49,44 +51,38 @@ export default function PanelCard({ config, layoutMode, globalHeight, onEdit, on
 
       {/* Card body */}
       <div
-        className="relative h-full border border-gray-700/50 flex flex-col transition-shadow duration-200 group-hover:shadow-lg"
+        className={`relative h-full border flex flex-col transition-all duration-200 group-hover:shadow-lg ${
+          isSelected ? "ring-2 ring-offset-1 ring-offset-gray-950" : ""
+        }`}
         style={{
           backgroundColor: "#1e293b",
           borderRadius: `${cornerRadius}px`,
-          borderColor: color + "44",
-          boxShadow: `0 0 20px ${glowColor}`,
+          borderColor: isSelected ? "#f59e0b" : color + "44",
+          boxShadow: isSelected ? `0 0 24px ${color}66` : `0 0 20px ${glowColor}`,
+          ringColor: color,
         }}
       >
+        {/* Selected overlay */}
+        {isSelected && (
+          <div
+            className="absolute inset-0 rounded-inherit pointer-events-none"
+            style={{ borderRadius: `${cornerRadius}px`, background: `${color}11` }}
+          />
+        )}
+
         {/* Header */}
-        <div
-          className="flex items-center justify-between px-4 py-2.5 shrink-0"
-          style={{ borderBottom: `1px solid ${color}33` }}
-        >
+        <div className="flex items-center justify-between px-4 py-2.5 shrink-0" style={{ borderBottom: `1px solid ${color}33` }}>
           <div className="flex items-center gap-2 min-w-0">
-            <span
-              className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-              style={{ backgroundColor: color, color: "#fff" }}
-            >
+            <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: color, color: "#fff" }}>
               {priority}
             </span>
             <span className="text-sm font-semibold text-gray-100 truncate">{title}</span>
+            {isSelected && <span className="text-[10px] text-amber-400 font-medium shrink-0">ROW</span>}
           </div>
 
-          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={onEdit}
-              className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-              title="Configure panel"
-            >
-              ⚙️
-            </button>
-            <button
-              onClick={onRemove}
-              className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors"
-              title="Remove panel"
-            >
-              ×
-            </button>
+          <div className={`flex gap-1 transition-opacity ${globalEditMode ? "opacity-0" : "opacity-0 group-hover:opacity-100"}`}>
+            <button onClick={onEdit} className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-white/10 text-gray-400 hover:text-white transition-colors" title="Configure panel">⚙️</button>
+            <button onClick={onRemove} className="w-7 h-7 flex items-center justify-center rounded-md hover:bg-red-500/20 text-gray-400 hover:text-red-400 transition-colors" title="Remove panel">×</button>
           </div>
         </div>
 
@@ -103,9 +99,7 @@ export default function PanelCard({ config, layoutMode, globalHeight, onEdit, on
 
         {/* Footer */}
         <div className="px-3 py-1.5 text-[10px] text-gray-500 flex justify-between border-t border-gray-700/30 opacity-0 group-hover:opacity-100 transition-opacity">
-          <span>
-            {isJustify ? "grid" : `${width}×${height}`} · r={cornerRadius}
-          </span>
+          <span>{isJustify ? "grid" : `${width}×${height}`} · r={cornerRadius}</span>
           <span>P{priority}</span>
         </div>
       </div>
