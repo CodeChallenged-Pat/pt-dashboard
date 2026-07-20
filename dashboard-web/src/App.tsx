@@ -17,62 +17,63 @@ const DEFAULT_PANELS: Panel[] = [
   { id: 8, priority: 8, title: "Yesterday Totals", width: 310, height: 200, cornerRadius: 16, color: "#64748b", content: "📅 $48,920 · 1,247 items · 842 txns" },
 ];
 
+type LayoutMode = "natural" | "justify";
+
 export default function App() {
   const [panels, setPanels] = useState<Panel[]>(() => {
     const saved = localStorage.getItem("pt-dashboard-panels");
     return saved ? JSON.parse(saved) : DEFAULT_PANELS;
   });
   const [editPanel, setEditPanel] = useState<Panel | null>(null);
-  const [columnCount, setColumnCount] = useState(3);
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>(() => {
+    const saved = localStorage.getItem("pt-dashboard-layout");
+    return (saved as LayoutMode) || "natural";
+  });
+  const [gapSize, setGapSize] = useState(() => {
+    const saved = localStorage.getItem("pt-dashboard-gap");
+    return saved ? Number(saved) : 16;
+  });
+  const [colWidth, setColWidth] = useState(() => {
+    const saved = localStorage.getItem("pt-dashboard-colwidth");
+    return saved ? Number(saved) : 280;
+  });
+  const [winWidth, setWinWidth] = useState(window.innerWidth);
 
-  // Persist panels
-  useEffect(() => {
-    localStorage.setItem("pt-dashboard-panels", JSON.stringify(panels));
-  }, [panels]);
+  // Persist
+  useEffect(() => { localStorage.setItem("pt-dashboard-panels", JSON.stringify(panels)); }, [panels]);
+  useEffect(() => { localStorage.setItem("pt-dashboard-layout", layoutMode); }, [layoutMode]);
+  useEffect(() => { localStorage.setItem("pt-dashboard-gap", String(gapSize)); }, [gapSize]);
+  useEffect(() => { localStorage.setItem("pt-dashboard-colwidth", String(colWidth)); }, [colWidth]);
 
-  // Track column count based on container width
+  // Track window width for column count
   useEffect(() => {
-    const updateCols = () => {
-      const w = window.innerWidth;
-      if (w < 640) setColumnCount(1);
-      else if (w < 1024) setColumnCount(2);
-      else setColumnCount(3);
-    };
-    updateCols();
-    window.addEventListener("resize", updateCols);
-    return () => window.removeEventListener("resize", updateCols);
+    const onResize = () => setWinWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   const updatePanel = useCallback((id: number, changes: Partial<PanelConfig>) => {
-    setPanels((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, ...changes } : p))
-    );
+    setPanels((prev) => prev.map((p) => (p.id === id ? { ...p, ...changes } : p)));
   }, []);
 
   const addPanel = useCallback(() => {
     const maxId = panels.reduce((m, p) => Math.max(m, p.id), 0);
     const maxPrio = panels.reduce((m, p) => Math.max(m, p.priority), 0);
-    setPanels((prev) => [
-      ...prev,
-      {
-        id: maxId + 1,
-        priority: maxPrio + 1,
-        title: `New Panel ${maxId + 1}`,
-        width: 280,
-        height: 200,
-        cornerRadius: 14,
-        color: `hsl(${Math.random() * 360}, 70%, 55%)`,
-        content: "✨ Configure me",
-      },
-    ]);
+    setPanels((prev) => [...prev, {
+      id: maxId + 1, priority: maxPrio + 1, title: `New Panel ${maxId + 1}`,
+      width: 280, height: 200, cornerRadius: 14,
+      color: `hsl(${Math.random() * 360}, 70%, 55%)`, content: "✨ Configure me",
+    }]);
   }, [panels]);
 
   const removePanel = useCallback((id: number) => {
     setPanels((prev) => prev.filter((p) => p.id !== id));
   }, []);
 
-  // Sort by priority
   const sorted = [...panels].sort((a, b) => a.priority - b.priority);
+
+  // Calculate column count in justify mode
+  const gridCols = Math.max(1, Math.floor((winWidth - 48) / (colWidth + gapSize)));
 
   return (
     <div className="min-h-screen bg-gray-950 p-4 md:p-6">
@@ -81,11 +82,60 @@ export default function App() {
         <div>
           <h1 className="text-2xl font-bold text-white">PT Dashboard</h1>
           <p className="text-gray-400 text-sm">
-            {panels.length} panels · {columnCount} column{columnCount > 1 ? "s" : ""} ·{" "}
-            {window.innerWidth}px wide
+            {panels.length} panels · {layoutMode === "justify" ? `${gridCols} col${gridCols !== 1 ? "s" : ""} justified` : "natural flow"} · {winWidth}px wide
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Layout mode toggle */}
+          <div className="flex items-center gap-2 bg-gray-800 rounded-lg p-1">
+            <button
+              onClick={() => setLayoutMode("natural")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                layoutMode === "natural"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+              title="Panels flow naturally, keeping their configured widths"
+            >
+              ▦ Natural
+            </button>
+            <button
+              onClick={() => setLayoutMode("justify")}
+              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                layoutMode === "justify"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+              title="Panels stretch to justify each row edge-to-edge"
+            >
+              ▣ Justify
+            </button>
+          </div>
+
+          {/* Gap control */}
+          <label className="flex items-center gap-1.5 text-xs text-gray-400">
+            Gap
+            <input
+              type="range" min={4} max={40} step={4} value={gapSize}
+              onChange={(e) => setGapSize(Number(e.target.value))}
+              className="w-16 accent-blue-500"
+            />
+            <span className="text-gray-500 w-7">{gapSize}px</span>
+          </label>
+
+          {/* Column width (justify mode only) */}
+          {layoutMode === "justify" && (
+            <label className="flex items-center gap-1.5 text-xs text-gray-400">
+              Col
+              <input
+                type="range" min={160} max={500} step={20} value={colWidth}
+                onChange={(e) => setColWidth(Number(e.target.value))}
+                className="w-16 accent-blue-500"
+              />
+              <span className="text-gray-500 w-8">{colWidth}</span>
+            </label>
+          )}
+
           <button
             onClick={addPanel}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors"
@@ -95,35 +145,46 @@ export default function App() {
         </div>
       </header>
 
-      {/* Dashboard grid — flow layout, priority ordered */}
+      {/* Dashboard grid */}
       <div
-        className="flex flex-wrap gap-4"
-        style={{ alignItems: "flex-start" }}
+        className={
+          layoutMode === "justify"
+            ? "grid"
+            : "flex flex-wrap"
+        }
+        style={
+          layoutMode === "justify"
+            ? {
+                gridTemplateColumns: `repeat(auto-fill, minmax(${colWidth}px, 1fr))`,
+                gap: `${gapSize}px`,
+              }
+            : {
+                gap: `${gapSize}px`,
+                alignItems: "flex-start",
+              }
+        }
       >
         {sorted.map((panel) => (
           <PanelCard
             key={panel.id}
             config={panel}
+            layoutMode={layoutMode}
             onUpdate={(changes) => updatePanel(panel.id, changes)}
             onEdit={() => setEditPanel(panel)}
             onRemove={() => removePanel(panel.id)}
           />
         ))}
         {panels.length === 0 && (
-          <div className="w-full py-20 text-center text-gray-500">
+          <div className="w-full py-20 text-center text-gray-500 col-span-full">
             <p className="text-4xl mb-4">📋</p>
             <p className="text-lg">No panels yet</p>
-            <button
-              onClick={addPanel}
-              className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg"
-            >
+            <button onClick={addPanel} className="mt-4 px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg">
               Create your first panel
             </button>
           </div>
         )}
       </div>
 
-      {/* Control panel for editing a panel */}
       {editPanel && (
         <ControlPanel
           panel={editPanel}
