@@ -133,9 +133,13 @@ export default function App() {
       </header>
 
       <div className={layoutMode === "justify" ? "grid" : "flex flex-wrap"}
-        style={layoutMode === "justify"
-          ? { gridTemplateColumns: `repeat(auto-fill, minmax(${colWidth}px, 1fr))`, gap: `${gapSize}px` }
-          : { gap: `${gapSize}px`, alignItems: "flex-start" }}>
+        style={{
+          ...(layoutMode === "justify"
+            ? { gridTemplateColumns: `repeat(auto-fill, minmax(${colWidth}px, 1fr))`, gap: `${gapSize}px` }
+            : { gap: `${gapSize}px`, alignItems: "flex-start" }),
+          marginRight: batchMode && selectedIds.size > 0 ? "288px" : 0,
+          transition: "margin-right 0.15s ease-out",
+        }}>
         {sorted.map((panel) => (
           <PanelCard key={panel.id} config={panel} layoutMode={layoutMode}
             isSelected={selectedIds.has(panel.id)}
