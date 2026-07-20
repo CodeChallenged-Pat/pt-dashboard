@@ -105,7 +105,7 @@ class SiteApiKey(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     site_id = Column(Integer, ForeignKey("sites.id"), nullable=False, unique=True)
     key_hash = Column(String(255), nullable=False)  # bcrypt hash of the API key
-    key_prefix = Column(String(8), nullable=False)   # first 8 chars for display (e.g., "ptsk_...")
+    key_prefix = Column(String(12), nullable=False)   # first 8 chars for display (e.g., "ptsk_...")
     is_active = Column(Boolean, nullable=False, default=True)
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     last_used_at = Column(DateTime, nullable=True)
