@@ -222,6 +222,33 @@ export default function App() {
     const maxP = panels.reduce((m, p) => Math.max(m, p.priority), 0);
     setPanels(prev => [...prev, { id: maxId+1, priority: maxP+1, title: `Panel ${maxId+1}`, colStart: 1, rowStart: 1, colSpan: 2, rowSpan: 1, cornerRadius: 14, color: `hsl(${Math.random()*360},70%,55%)`, content: "✨" }]);
   }, [panels]);
+
+  // Auto-layout panels to avoid overlapping
+  const scatterPanels = useCallback(() => {
+    const sorted = [...panels].sort((a, b) => a.priority - b.priority);
+    const occupied = new Set<string>(); // "col-row" keys
+    const updated = sorted.map(p => {
+      let r = 1, c = 1;
+      // Find first non-overlapping position
+      outer: for (r = 1; r <= 50; r++) {
+        for (c = 1; c <= GRID_COLS - p.colSpan + 1; c++) {
+          let fits = true;
+          for (let dr = 0; dr < p.rowSpan && fits; dr++) {
+            for (let dc = 0; dc < p.colSpan && fits; dc++) {
+              if (occupied.has(`${c + dc}-${r + dr}`)) fits = false;
+            }
+          }
+          if (fits) break outer;
+        }
+      }
+      // Mark occupied
+      for (let dr = 0; dr < p.rowSpan; dr++)
+        for (let dc = 0; dc < p.colSpan; dc++)
+          occupied.add(`${c + dc}-${r + dr}`);
+      return { ...p, colStart: c, rowStart: r };
+    });
+    setPanels(updated);
+  }, [panels]);
   const removePanel = useCallback((id: number) => {
     setPanels(prev => prev.filter(p => p.id !== id));
     setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
@@ -241,6 +268,7 @@ export default function App() {
           <button onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }}
             className={`w-9 h-9 flex items-center justify-center rounded text-base ${batchMode ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50" : "bg-gray-800 text-gray-400 hover:text-white"}`}
             title="Batch mode — shift+click to select, drag header to move, drag corner to resize">⚙</button>
+          <button onClick={scatterPanels} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-xs font-medium" title="Auto-layout panels so none overlap">↔ Scatter</button>
           <button onClick={addPanel} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium">+ Panel</button>
         </div>
       </header>
