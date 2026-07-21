@@ -50,25 +50,21 @@ function DashboardPanel({
     const onMove = (ev: MouseEvent) => {
       const dx = ev.clientX - startPos.current.x;
       const dy = ev.clientY - startPos.current.y;
-      // Rough conversion: ~150px per column, ~120px per row
+      // ~150px/col, ~120px/row — snap to grid
       const newCol = Math.max(1, Math.min(GRID_COLS, startPos.current.col + Math.round(dx / 150)));
       const newRow = Math.max(1, Math.min(6, startPos.current.row + Math.round(dy / 120)));
-      if (newCol !== colSpan || newRow !== rowSpan) {
-        onResize(newCol, newRow);
-      }
+      // Update the ref so onUp has the final values
+      startPos.current.col = newCol;
+      startPos.current.row = newRow;
+      onResize(newCol, newRow);
     };
 
     const onUp = () => {
       isResizing.current = false;
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
-      // Commit final size
-      const finalDx = startPos.current.col;
-      const finalDy = startPos.current.row;
-      onResize(
-        Math.max(1, Math.min(GRID_COLS, finalDx)),
-        Math.max(1, Math.min(6, finalDy)),
-      );
+      // Commit final size from last known position
+      onResize(startPos.current.col, startPos.current.row);
     };
 
     window.addEventListener("mousemove", onMove);
@@ -265,11 +261,9 @@ export default function App() {
         <BatchSidebar panels={selectedPanels} onApply={applyBatch} onClose={() => setSelectedIds(new Set())} />
       )}
 
-      {/* Individual config — reuse existing ControlPanel */}
+      {/* Individual config — no backdrop, panels stay clickable */}
       {editPanel && !batchMode && (
-        <div className="fixed inset-0 z-50">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setEditPanel(null)} />
-          <div className="absolute right-0 top-0 h-full w-72 bg-gray-900 border-l border-gray-700 overflow-y-auto animate-slide-in p-4">
+        <div className="fixed right-0 top-0 h-full w-72 bg-gray-900/95 border-l border-gray-700 z-50 overflow-y-auto animate-slide-in backdrop-blur-sm p-4" style={{ marginRight: 0 }}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-white">Edit Panel</h2>
               <button onClick={() => setEditPanel(null)} className="text-gray-400 hover:text-white">×</button>
@@ -283,7 +277,6 @@ export default function App() {
             <label className="block mb-2"><span className="text-[10px] text-gray-400">Radius ({editPanel.cornerRadius})</span>
               <input type="range" min={0} max={40} value={editPanel.cornerRadius} onChange={e => updatePanel(editPanel.id, { cornerRadius: +e.target.value })} className="w-full accent-blue-500" /></label>
           </div>
-        </div>
       )}
 
       <style>{`@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}.animate-slide-in{animation:slideIn .15s ease-out}`}</style>
