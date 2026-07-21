@@ -27,11 +27,11 @@ const DEFAULT_PANELS: Panel[] = [
 ];
 
 // ── Panel Card ──
-function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMove, onEdit, onRemove, gridRef }: {
+function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMove, onEdit, onRemove, gridRef, gapSize, zIndex }: {
   panel: Panel; isSelected: boolean; batchMode: boolean;
   onClick: (shift: boolean) => void; onResize: (colSpan: number, rowSpan: number) => void;
   onMove: (colStart: number, rowStart: number) => void; onEdit: () => void; onRemove: () => void;
-  gridRef: React.RefObject<HTMLDivElement | null>;
+  gridRef: React.RefObject<HTMLDivElement | null>; gapSize: number; zIndex: number;
 }) {
   const { priority, title, colStart, rowStart, colSpan, rowSpan, cornerRadius, color, content } = panel;
   const glowColor = color + "33";
@@ -46,7 +46,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
     let lastX = e.clientX, lastY = e.clientY;
     let accCol = 0, accRow = 0;
     const colPx = window.innerWidth / GRID_COLS;
-    const rowPx = 100;
+    const rowPx = 100 + gapSize;  // grid row height + gap for snapping
 
     const onMoveFn = (ev: MouseEvent) => {
       const fdx = ev.clientX - lastX; const fdy = ev.clientY - lastY;
@@ -72,7 +72,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
     if (!grid) return;
     const gridRect = grid.getBoundingClientRect();
     const colPx = gridRect.width / GRID_COLS;
-    const rowPx = 100;
+    const rowPx = 100 + gapSize;
     let curC = colStart, curR = rowStart;
     let lastX = e.clientX, lastY = e.clientY;
     let accC = 0, accR = 0;
@@ -94,7 +94,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
 
   return (
     <div className={`relative group transition-all duration-200 ${batchMode ? "cursor-pointer" : ""}`}
-      style={{ gridColumn: `${colStart} / span ${colSpan}`, gridRow: `${rowStart} / span ${rowSpan}`, minHeight: rowSpan * 100 }}
+      style={{ gridColumn: `${colStart} / span ${colSpan}`, gridRow: `${rowStart} / span ${rowSpan}`, minHeight: rowSpan * 100, zIndex }}
       onClick={batchMode ? (e) => { e.stopPropagation(); onClick(e.shiftKey); } : undefined}>
 
       {/* Glow */}
@@ -198,6 +198,8 @@ export default function App() {
   const [gapSize, setGapSize] = useState(() => { const s = localStorage.getItem("ptdash-gap"); return s ? +s : 12; });
   const [batchMode, setBatchMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [zCounter, setZCounter] = useState(0);
+  const [panelZIndex, setPanelZIndex] = useState<Record<number, number>>({});
   const gridRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { localStorage.setItem("ptdash-panels-v2", JSON.stringify(panels)); }, [panels]);
@@ -211,6 +213,8 @@ export default function App() {
   }, [selectedIds]);
   const toggleSelect = useCallback((id: number, shift: boolean) => {
     setSelectedIds(prev => { if (!shift) return new Set([id]); const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    // Bring to front
+    setZCounter(c => { const next = c + 1; setPanelZIndex(p => ({ ...p, [id]: next })); return next; });
   }, []);
 
   const addPanel = useCallback(() => {
@@ -245,7 +249,7 @@ export default function App() {
         style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`, gap: `${gapSize}px`, gridAutoRows: "100px",
           marginRight: sidebarOpen ? "256px" : 0, transition: "margin-right 0.15s ease-out" }}>
         {sorted.map(p => (
-          <DashboardPanel key={p.id} panel={p} gridRef={gridRef} batchMode={batchMode}
+          <DashboardPanel key={p.id} panel={p} gridRef={gridRef} batchMode={batchMode} gapSize={gapSize} zIndex={panelZIndex[p.id] || 0}
             isSelected={selectedIds.has(p.id)} onClick={(shift) => toggleSelect(p.id, shift)}
             onResize={(colSpan, rowSpan) => updatePanel(p.id, { colSpan, rowSpan })}
             onMove={(colStart, rowStart) => updatePanel(p.id, { colStart, rowStart })}
