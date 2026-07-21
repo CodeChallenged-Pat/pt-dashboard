@@ -263,13 +263,19 @@ export default function App() {
       <header className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h1 className="text-xl font-bold text-white">PT Dashboard</h1>
         <div className="flex items-center gap-2 flex-wrap">
-          <label className="flex items-center gap-1 text-[10px] text-gray-400">Gap
+          {batchMode && (
+            <label className="flex items-center gap-1 text-[10px] text-gray-400">Gap
             <input type="range" min={4} max={32} step={4} value={gapSize} onChange={e => setGapSize(+e.target.value)} className="w-12 accent-blue-500" /></label>
+          )}
           <button onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }}
             className={`w-9 h-9 flex items-center justify-center rounded text-base ${batchMode ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50" : "bg-gray-800 text-gray-400 hover:text-white"}`}
             title="Batch mode — shift+click to select, drag header to move, drag corner to resize">⚙</button>
-          <button onClick={scatterPanels} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-xs font-medium" title="Auto-layout panels so none overlap">↔ Scatter</button>
-          <button onClick={addPanel} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium">+ Panel</button>
+          {batchMode && (
+            <button onClick={scatterPanels} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-xs font-medium" title="Auto-layout panels so none overlap">↔ Scatter</button>
+          )}
+          {batchMode && (
+            <button onClick={addPanel} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium">+ Panel</button>
+          )}
         </div>
       </header>
 
