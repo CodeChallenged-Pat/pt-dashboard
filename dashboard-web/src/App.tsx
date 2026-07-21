@@ -10,6 +10,7 @@ export interface PanelConfig {
   cornerRadius: number;
   color: string;
   content?: string;
+  isLocked?: boolean;
 }
 export interface Panel extends PanelConfig { id: number; }
 
@@ -27,13 +28,14 @@ const DEFAULT_PANELS: Panel[] = [
 ];
 
 // ── Panel Card ──
-function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMove, onEdit, onRemove, gridRef, gapSize, zIndex }: {
+function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMove, onEdit, onRemove, onToggleLock, gridRef, gapSize, zIndex }: {
   panel: Panel; isSelected: boolean; batchMode: boolean;
   onClick: (shift: boolean) => void; onResize: (colSpan: number, rowSpan: number) => void;
   onMove: (colStart: number, rowStart: number) => void; onEdit: () => void; onRemove: () => void;
-  gridRef: React.RefObject<HTMLDivElement | null>; gapSize: number; zIndex: number;
+  onToggleLock: () => void; gridRef: React.RefObject<HTMLDivElement | null>; gapSize: number; zIndex: number;
 }) {
-  const { priority, title, colStart, rowStart, colSpan, rowSpan, cornerRadius, color, content } = panel;
+  const { priority, title, colStart, rowStart, colSpan, rowSpan, cornerRadius, color, content, isLocked } = panel;
+  const locked = isLocked === true;
   const glowColor = color + "33";
   const resizeRef = useRef<HTMLDivElement>(null);
   const isResizing = useRef(false);
@@ -105,17 +107,23 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
         style={{ backgroundColor: "#1e293b", borderRadius: `${cornerRadius}px`, borderColor: isSelected ? "#f59e0b" : color + "44", boxShadow: isSelected ? `0 0 20px ${color}66` : `0 0 12px ${glowColor}` }}>
         {isSelected && <div className="absolute inset-0 pointer-events-none" style={{ borderRadius: `${cornerRadius}px`, background: `${color}11` }} />}
 
-        {/* Header — draggable in batch mode */}
-        <div className={`flex items-center justify-between px-3 py-2 shrink-0 ${batchMode ? "cursor-grab active:cursor-grabbing" : ""}`}
+        {/* Header — draggable in batch mode (unless locked) */}
+        <div className={`flex items-center justify-between px-3 py-2 shrink-0 ${batchMode && !locked ? "cursor-grab active:cursor-grabbing" : ""}`}
           style={{ borderBottom: `1px solid ${color}33` }}
-          onMouseDown={batchMode ? onHeaderDown : undefined}>
+          onMouseDown={batchMode && !locked ? onHeaderDown : undefined}>
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ backgroundColor: color }}>{priority}</span>
             <span className="text-xs font-semibold text-gray-100 truncate">{title}</span>
+            {locked && <span className="text-[10px] text-amber-400 shrink-0" title="Locked">🔒</span>}
           </div>
-          <div className={`flex gap-1 ${batchMode ? "hidden" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
-            <button onClick={onEdit} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs">⚙️</button>
-            <button onClick={onRemove} className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 text-xs">×</button>
+          <div className={`flex gap-1 ${batchMode ? "" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
+            {batchMode && (
+              <button onClick={onToggleLock}
+                className={`w-6 h-6 flex items-center justify-center rounded text-xs transition-colors ${locked ? "bg-amber-500/20 text-amber-400" : "hover:bg-white/10 text-gray-400 hover:text-white"}`}
+                title={locked ? "Unlock panel" : "Lock panel position"}>🔒</button>
+            )}
+            {!batchMode && <button onClick={onEdit} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs">⚙️</button>}
+            {!batchMode && <button onClick={onRemove} className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 text-xs">×</button>}
           </div>
         </div>
 
@@ -125,8 +133,8 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
             : <span className="text-gray-500 text-xs">Panel content</span>}
         </div>
 
-        {/* Resize handle */}
-        {batchMode && (
+        {/* Resize handle (hidden if locked) */}
+        {batchMode && !locked && (
           <div ref={resizeRef} onMouseDown={onResizeStart}
             className="absolute bottom-1 right-1 w-8 h-8 cursor-se-resize z-10 flex items-end justify-end rounded-br-lg hover:bg-white/5" style={{ color }}>
             <svg width="16" height="16" viewBox="0 0 12 12"><path d="M0 12V9h3L0 12zm0-6V3h3l3 3H3L0 6zm6 6V9h3l-3 3z" fill="currentColor" opacity="0.8"/></svg>
@@ -197,6 +205,7 @@ export default function App() {
   const [editPanel, setEditPanel] = useState<Panel | null>(null);
   const [gapSize, setGapSize] = useState(() => { const s = localStorage.getItem("ptdash-gap"); return s ? +s : 12; });
   const [batchMode, setBatchMode] = useState(false);
+  const [dockMode, setDockMode] = useState<'full' | 'left' | 'right'>('full');
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [zCounter, setZCounter] = useState(0);
   const [panelZIndex, setPanelZIndex] = useState<Record<number, number>>({});
@@ -217,6 +226,14 @@ export default function App() {
     setZCounter(c => { const next = c + 1; setPanelZIndex(p => ({ ...p, [id]: next })); return next; });
   }, []);
 
+  const toggleLock = useCallback((id: number) => {
+    setPanels(prev => prev.map(p => p.id === id ? { ...p, isLocked: !p.isLocked } : p));
+  }, []);
+
+  const cycleDock = useCallback(() => {
+    setDockMode(prev => prev === 'full' ? 'right' : prev === 'right' ? 'left' : 'full');
+  }, []);
+
   const addPanel = useCallback(() => {
     const maxId = panels.reduce((m, p) => Math.max(m, p.id), 0);
     const maxP = panels.reduce((m, p) => Math.max(m, p.priority), 0);
@@ -226,28 +243,32 @@ export default function App() {
   // Auto-layout panels to avoid overlapping
   const scatterPanels = useCallback(() => {
     const sorted = [...panels].sort((a, b) => a.priority - b.priority);
-    const occupied = new Set<string>(); // "col-row" keys
-    const updated = sorted.map(p => {
+    const locked = panels.filter(p => p.isLocked);
+    const unlocked = sorted.filter(p => !p.isLocked);
+    const occupied = new Set<string>();
+    // Mark locked panel positions as occupied
+    locked.forEach(p => {
+      for (let dr = 0; dr < p.rowSpan; dr++)
+        for (let dc = 0; dc < p.colSpan; dc++)
+          occupied.add(`${p.colStart + dc}-${p.rowStart + dr}`);
+    });
+    const scattered = unlocked.map(p => {
       let r = 1, c = 1;
-      // Find first non-overlapping position
       outer: for (r = 1; r <= 50; r++) {
         for (c = 1; c <= GRID_COLS - p.colSpan + 1; c++) {
           let fits = true;
-          for (let dr = 0; dr < p.rowSpan && fits; dr++) {
-            for (let dc = 0; dc < p.colSpan && fits; dc++) {
+          for (let dr = 0; dr < p.rowSpan && fits; dr++)
+            for (let dc = 0; dc < p.colSpan && fits; dc++)
               if (occupied.has(`${c + dc}-${r + dr}`)) fits = false;
-            }
-          }
           if (fits) break outer;
         }
       }
-      // Mark occupied
       for (let dr = 0; dr < p.rowSpan; dr++)
         for (let dc = 0; dc < p.colSpan; dc++)
           occupied.add(`${c + dc}-${r + dr}`);
       return { ...p, colStart: c, rowStart: r };
     });
-    setPanels(updated);
+    setPanels([...locked, ...scattered]);
   }, [panels]);
   const removePanel = useCallback((id: number) => {
     setPanels(prev => prev.filter(p => p.id !== id));
@@ -269,6 +290,9 @@ export default function App() {
             <button onClick={scatterPanels} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-xs font-medium" title="Auto-layout panels so none overlap">↔ Scatter</button>
             <button onClick={addPanel} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium">+ Panel</button>
           </>)}
+          <button onClick={cycleDock}
+            className={`w-9 h-9 flex items-center justify-center rounded text-sm ${dockMode !== 'full' ? "bg-blue-500/20 text-blue-400" : "bg-gray-800 text-gray-400 hover:text-white"}`}
+            title={`Dock: ${dockMode === 'full' ? 'Full screen' : dockMode === 'right' ? 'Docked right' : 'Docked left'} — click to cycle`}>⊞</button>
           <button onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }}
             className={`w-9 h-9 flex items-center justify-center rounded text-base ${batchMode ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50" : "bg-gray-800 text-gray-400 hover:text-white"}`}
             title="Batch mode — shift+click to select, drag header to move, drag corner to resize">⚙</button>
@@ -279,7 +303,7 @@ export default function App() {
         style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`, gap: `${gapSize}px`, gridAutoRows: "100px",
           marginRight: sidebarOpen ? "256px" : 0, transition: "margin-right 0.15s ease-out" }}>
         {sorted.map(p => (
-          <DashboardPanel key={p.id} panel={p} gridRef={gridRef} batchMode={batchMode} gapSize={gapSize} zIndex={panelZIndex[p.id] || 0}
+          <DashboardPanel key={p.id} panel={p} gridRef={gridRef} batchMode={batchMode} gapSize={gapSize} zIndex={panelZIndex[p.id] || 0} onToggleLock={() => toggleLock(p.id)}
             isSelected={selectedIds.has(p.id)} onClick={(shift) => toggleSelect(p.id, shift)}
             onResize={(colSpan, rowSpan) => updatePanel(p.id, { colSpan, rowSpan })}
             onMove={(colStart, rowStart) => updatePanel(p.id, { colStart, rowStart })}
