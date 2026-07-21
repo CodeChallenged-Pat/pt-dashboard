@@ -50,9 +50,10 @@ function DashboardPanel({
     const onMove = (ev: MouseEvent) => {
       const dx = ev.clientX - startPos.current.x;
       const dy = ev.clientY - startPos.current.y;
-      // ~150px/col, ~120px/row — snap to grid
-      const newCol = Math.max(1, Math.min(GRID_COLS, startPos.current.col + Math.round(dx / 150)));
-      const newRow = Math.max(1, Math.min(6, startPos.current.row + Math.round(dy / 120)));
+      // Dynamic column width: divide window by grid cols (accounts for any screen size)
+      const colPx = window.innerWidth / GRID_COLS;
+      const newCol = Math.max(1, Math.min(GRID_COLS, startPos.current.col + Math.round(dx / colPx)));
+      const newRow = Math.max(1, Math.min(6, startPos.current.row + Math.round(dy / 100)));
       // Update the ref so onUp has the final values
       startPos.current.col = newCol;
       startPos.current.row = newRow;
@@ -86,10 +87,10 @@ function DashboardPanel({
         <div
           ref={resizeRef}
           onMouseDown={onResizeStart}
-          className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize z-10 flex items-end justify-end p-0.5"
+          className="absolute bottom-1 right-1 w-8 h-8 cursor-se-resize z-10 flex items-end justify-end rounded-br-lg hover:bg-white/5"
           style={{ color: color }}
         >
-          <svg width="12" height="12" viewBox="0 0 12 12"><path d="M0 12V9h3L0 12zm0-6V3h3l3 3H3L0 6zm6 6V9h3l-3 3z" fill="currentColor" opacity="0.6"/></svg>
+          <svg width="16" height="16" viewBox="0 0 12 12"><path d="M0 12V9h3L0 12zm0-6V3h3l3 3H3L0 6zm6 6V9h3l-3 3z" fill="currentColor" opacity="0.8"/></svg>
         </div>
       )}
 
@@ -229,8 +230,8 @@ export default function App() {
             <input type="range" min={4} max={32} step={4} value={gapSize} onChange={e => setGapSize(+e.target.value)} className="w-12 accent-blue-500" />
           </label>
           <button onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }}
-            className={`w-8 h-8 flex items-center justify-center rounded text-xs ${batchMode ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50" : "bg-gray-800 text-gray-400 hover:text-white"}`}
-            title="Batch mode">⚙</button>
+            className={`w-9 h-9 flex items-center justify-center rounded text-base ${batchMode ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50" : "bg-gray-800 text-gray-400 hover:text-white"}`}
+            title="Batch mode — shift+click to select panels">⚙</button>
           <button onClick={addPanel} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium">+ Panel</button>
         </div>
       </header>
