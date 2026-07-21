@@ -11,6 +11,7 @@ export interface PanelConfig {
   color: string;
   content?: string;
   isLocked?: boolean;
+  isMinimized?: boolean;
 }
 export interface Panel extends PanelConfig { id: number; }
 
@@ -32,9 +33,9 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
   panel: Panel; isSelected: boolean; batchMode: boolean;
   onClick: (shift: boolean) => void; onResize: (colSpan: number, rowSpan: number) => void;
   onMove: (colStart: number, rowStart: number) => void; onEdit: () => void; onRemove: () => void;
-  onToggleLock: () => void; gridRef: React.RefObject<HTMLDivElement | null>; gapSize: number; zIndex: number;
+  onToggleLock: () => void; onToggleMinimize: () => void; gridRef: React.RefObject<HTMLDivElement | null>; gapSize: number; zIndex: number;
 }) {
-  const { priority, title, colStart, rowStart, colSpan, rowSpan, cornerRadius, color, content, isLocked } = panel;
+  const { priority, title, colStart, rowStart, colSpan, rowSpan, cornerRadius, color, content, isLocked, isMinimized } = panel;
   const locked = isLocked === true;
   const glowColor = color + "33";
   const resizeRef = useRef<HTMLDivElement>(null);
@@ -96,7 +97,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
 
   return (
     <div className={`relative group transition-all duration-200 ${batchMode ? "cursor-pointer" : ""}`}
-      style={{ gridColumn: `${colStart} / span ${colSpan}`, gridRow: `${rowStart} / span ${rowSpan}`, minHeight: rowSpan * 100, zIndex }}
+      style={{ gridColumn: `${colStart} / span ${colSpan}`, gridRow: `${rowStart} / span ${isMinimized ? 1 : rowSpan}`, minHeight: isMinimized ? 36 : rowSpan * 100, zIndex }}
       onClick={batchMode ? (e) => { e.stopPropagation(); onClick(e.shiftKey); } : undefined}>
 
       {/* Glow */}
@@ -109,25 +110,32 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
 
         {/* Header — draggable in batch mode (unless locked) */}
         <div className={`flex items-center justify-between px-3 py-2 shrink-0 ${batchMode && !locked ? "cursor-grab active:cursor-grabbing" : ""}`}
-          style={{ borderBottom: `1px solid ${color}33` }}
+          style={{ borderBottom: isMinimized ? "none" : `1px solid ${color}33` }}
           onMouseDown={batchMode && !locked ? onHeaderDown : undefined}>
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ backgroundColor: color }}>{priority}</span>
             <span className="text-xs font-semibold text-gray-100 truncate">{title}</span>
             {locked && <span className="text-[10px] text-amber-400 shrink-0" title="Locked">🔒</span>}
+            {isMinimized && <span className="text-[10px] text-gray-500 shrink-0">—</span>}
           </div>
           <div className={`flex gap-1 ${batchMode ? "" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
-            {batchMode && (
+            {batchMode && (<>
               <button onClick={onToggleLock}
                 className={`w-6 h-6 flex items-center justify-center rounded text-xs transition-colors ${locked ? "bg-amber-500/20 text-amber-400" : "hover:bg-white/10 text-gray-400 hover:text-white"}`}
-                title={locked ? "Unlock panel" : "Lock panel position"}>🔒</button>
-            )}
-            {!batchMode && <button onClick={onEdit} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs">⚙️</button>}
-            {!batchMode && <button onClick={onRemove} className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 text-xs">×</button>}
+                title={locked ? "Unlock" : "Lock"}>🔒</button>
+              <button onClick={onToggleMinimize}
+                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs"
+                title={isMinimized ? "Expand" : "Minimize"}>−</button>
+            </>)}
+            {!batchMode && (<>
+              <button onClick={onEdit} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs">⚙️</button>
+              <DeleteButton onConfirm={onRemove} />
+            </>)}
           </div>
         </div>
 
-        {/* Content */}
+        {/* Content (hidden when minimized) */}
+        {!isMinimized && (<>
         <div className="flex-1 flex items-center justify-center p-3 min-h-0">
           {content ? <span className="text-lg text-gray-200 text-center">{content}</span>
             : <span className="text-gray-500 text-xs">Panel content</span>}
@@ -146,8 +154,26 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
           <span>c{colStart}r{rowStart} · {colSpan}×{rowSpan}</span>
           <span>P{priority}</span>
         </div>
+        </>)}
       </div>
     </div>
+  );
+}
+
+// ── Delete confirmation button ──
+function DeleteButton({ onConfirm }: { onConfirm: () => void }) {
+  const [show, setShow] = useState(false);
+  if (show) {
+    return (
+      <div className="flex items-center gap-1 bg-gray-800 rounded px-1 py-0.5">
+        <span className="text-[10px] text-red-400">Delete?</span>
+        <button onClick={() => { onConfirm(); setShow(false); }} className="w-5 h-5 flex items-center justify-center rounded bg-red-500/20 text-red-400 text-[10px] hover:bg-red-500/40">✓</button>
+        <button onClick={() => setShow(false)} className="w-5 h-5 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 text-[10px]">×</button>
+      </div>
+    );
+  }
+  return (
+    <button onClick={() => setShow(true)} className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-500/20 text-gray-400 hover:text-red-400 text-xs" title="Delete">🗑️</button>
   );
 }
 
@@ -230,6 +256,32 @@ export default function App() {
     setPanels(prev => prev.map(p => p.id === id ? { ...p, isLocked: !p.isLocked } : p));
   }, []);
 
+  const toggleMinimize = useCallback((id: number) => {
+    setPanels(prev => {
+      const panel = prev.find(p => p.id === id);
+      if (!panel) return prev;
+      const willMinimize = !panel.isMinimized;
+      let updated = prev.map(p => p.id === id ? { ...p, isMinimized: willMinimize } : p);
+      if (willMinimize) {
+        // Shift panels below up into freed space
+        updated = updated.map(p => {
+          if (p.id === id || p.rowStart <= panel.rowStart) return p;
+          if (p.isLocked) return p;
+          // Check if this panel overlaps horizontally with the minimized one
+          const pEnd = p.colStart + p.colSpan;
+          const mEnd = panel.colStart + panel.colSpan;
+          const overlap = p.colStart < mEnd && pEnd > panel.colStart;
+          if (overlap) {
+            const shift = panel.rowSpan - 1; // freed rows (minimized = 1 row, was rowSpan)
+            if (shift > 0) return { ...p, rowStart: Math.max(1, p.rowStart - shift) };
+          }
+          return p;
+        });
+      }
+      return updated;
+    });
+  }, []);
+
   const cycleDock = useCallback(() => {
     setDockMode(prev => prev === 'full' ? 'right' : prev === 'right' ? 'left' : 'full');
   }, []);
@@ -303,7 +355,7 @@ export default function App() {
         style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`, gap: `${gapSize}px`, gridAutoRows: "100px",
           marginRight: sidebarOpen ? "256px" : 0, transition: "margin-right 0.15s ease-out" }}>
         {sorted.map(p => (
-          <DashboardPanel key={p.id} panel={p} gridRef={gridRef} batchMode={batchMode} gapSize={gapSize} zIndex={panelZIndex[p.id] || 0} onToggleLock={() => toggleLock(p.id)}
+          <DashboardPanel key={p.id} panel={p} gridRef={gridRef} batchMode={batchMode} gapSize={gapSize} zIndex={panelZIndex[p.id] || 0} onToggleLock={() => toggleLock(p.id)} onToggleMinimize={() => toggleMinimize(p.id)}
             isSelected={selectedIds.has(p.id)} onClick={(shift) => toggleSelect(p.id, shift)}
             onResize={(colSpan, rowSpan) => updatePanel(p.id, { colSpan, rowSpan })}
             onMove={(colStart, rowStart) => updatePanel(p.id, { colStart, rowStart })}
