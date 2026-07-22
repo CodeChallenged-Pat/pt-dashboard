@@ -75,12 +75,14 @@ function LineChart({ data, color, valueLabel, avgValue, weekdayLabels }: {
       {avgValue !== undefined && avgValue > 0 && (
         <>
           <line x1={pad.left} y1={pad.top + plotH - ((avgValue - minVal) / range) * plotH}
-                x2={pad.left + plotW} y2={pad.top + plotH - ((avgValue - minVal) / range) * plotH}
+                x2={pad.left + plotW - 40} y2={pad.top + plotH - ((avgValue - minVal) / range) * plotH}
                 stroke="#94a3b8" strokeWidth="1" strokeDasharray="4,3" />
-          <rect x={pad.left + plotW / 2 - 32} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH - 16}
-                width="64" height="16" rx="3" fill="#1e293b" opacity="0.9" />
-          <text x={pad.left + plotW / 2} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH - 2}
-                textAnchor="middle" fill="#94a3b8" fontSize="7">avg ${avgValue >= 1000 ? (avgValue/1000).toFixed(1) + 'k' : avgValue.toFixed(0)}</text>
+          <text x={pad.left + plotW - 36} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH - 4}
+                textAnchor="start" fill="#64748b" fontSize="7">avg</text>
+          <text x={pad.left + plotW - 36} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH + 7}
+                textAnchor="start" fill="#94a3b8" fontSize="8" fontWeight="bold">
+            ${avgValue >= 1000 ? (avgValue/1000).toFixed(1) + 'k' : avgValue.toFixed(0)}
+          </text>
         </>
       )}
       {/* Area fill */}
