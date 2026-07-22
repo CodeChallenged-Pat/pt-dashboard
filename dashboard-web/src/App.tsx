@@ -123,13 +123,13 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
         {isSelected && <div className="absolute inset-0 pointer-events-none" style={{ borderRadius: `${cornerRadius}px`, background: `${color}11` }} />}
 
         {/* Header — draggable in batch mode (unless locked) */}
-        <div className={`flex items-center justify-between px-3 py-2 shrink-0 ${batchMode && !locked ? "cursor-grab active:cursor-grabbing" : ""}`}
+        <div className={`flex items-center px-3 py-2 shrink-0 ${batchMode && !locked ? "cursor-grab active:cursor-grabbing" : ""}`}
           style={{ borderBottom: isMinimized ? "none" : `1px solid ${color}33`, backgroundColor: headerBg || "transparent", borderTopLeftRadius: `${cornerRadius}px`, borderTopRightRadius: `${cornerRadius}px` }}
           onMouseDown={batchMode && !locked ? onHeaderDown : undefined}
           onDoubleClick={onToggleMinimize}>
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0" style={{ flex: 1, justifyContent: titleAlign === "center" ? "center" : titleAlign === "right" ? "flex-end" : "flex-start" }}>
             {!batchMode && <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ backgroundColor: color }}>{priority}</span>}
-            <span className="text-xs font-semibold truncate" style={{ color: headerColor, fontFamily: headerFont, textAlign: ta as any, flex: 1, overflow: 'hidden' }}>{title}</span>
+            <span className="text-xs font-semibold truncate" style={{ color: headerColor, fontFamily: headerFont }}>{title}</span>
           </div>
           <div className={`flex gap-1 ${batchMode ? "" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
             {batchMode && (
@@ -312,6 +312,51 @@ function BatchSidebar({ panels, onApply, onClose }: {
   );
 }
 
+// ── Edit Panel Sidebar ──
+function EditPanel({ panel, onClose, onUpdate }: { panel: Panel; onClose: () => void; onUpdate: (ch: Partial<PanelConfig>) => void }) {
+  const [id, setId] = useState(panel.id);
+  const [, forceUpdate] = useState(0);
+  if (id !== panel.id) { setId(panel.id); setTimeout(() => forceUpdate(x => x + 1), 0); }
+  const p = panel;
+  return (
+    <div className="fixed right-0 top-0 h-full w-72 bg-gray-900/95 border-l border-gray-700 z-50 overflow-y-auto animate-slide-in backdrop-blur-sm p-4">
+      <div className="flex items-center justify-between mb-4"><h2 className="text-sm font-bold text-white">Edit Panel</h2><button onClick={onClose} className="text-gray-400 hover:text-white">×</button></div>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Title</span>
+        <input defaultValue={panel.title} onChange={e => onUpdate({ title: e.target.value })} className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs" /></label>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Title Color</span>
+        <input type="color" defaultValue={panel.titleColor || panel.color} onChange={e => onUpdate({ titleColor: e.target.value })} className="w-full h-7 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></label>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Title Font</span>
+        <select defaultValue={panel.titleFont || ""} onChange={e => onUpdate({ titleFont: e.target.value || undefined })}
+          className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs">
+          <option value="">Default</option><option value="Inter, sans-serif">Inter</option>
+          <option value="Georgia, serif">Georgia</option><option value="'Courier New', monospace">Courier</option>
+          <option value="'Times New Roman', serif">Times New Roman</option><option value="Verdana, sans-serif">Verdana</option>
+          <option value="'Trebuchet MS', sans-serif">Trebuchet</option><option value="Impact, sans-serif">Impact</option>
+          <option value="'Comic Sans MS', cursive">Comic Sans</option><option value="system-ui, sans-serif">System UI</option>
+        </select></label>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Header Bg</span>
+        <input type="color" defaultValue={panel.headerBg || "#1e293b"} onChange={e => onUpdate({ headerBg: e.target.value })} className="w-full h-7 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></label>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Body Bg</span>
+        <input type="color" defaultValue={panel.bodyBg || "#1e293b"} onChange={e => onUpdate({ bodyBg: e.target.value })} className="w-full h-7 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></label>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Col ({panel.colStart})</span>
+        <input type="range" min={1} max={GRID_COLS} defaultValue={panel.colStart} onChange={e => onUpdate({ colStart: +e.target.value })} className="w-full accent-blue-500" /></label>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Row ({panel.rowStart})</span>
+        <input type="range" min={1} max={20} defaultValue={panel.rowStart} onChange={e => onUpdate({ rowStart: +e.target.value })} className="w-full accent-blue-500" /></label>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Width ({panel.colSpan})</span>
+        <input type="range" min={1} max={GRID_COLS} defaultValue={panel.colSpan} onChange={e => onUpdate({ colSpan: +e.target.value })} className="w-full accent-blue-500" /></label>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Height ({panel.rowSpan})</span>
+        <input type="range" min={1} max={6} defaultValue={panel.rowSpan} onChange={e => onUpdate({ rowSpan: +e.target.value })} className="w-full accent-blue-500" /></label>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Radius ({panel.cornerRadius})</span>
+        <input type="range" min={0} max={40} defaultValue={panel.cornerRadius} onChange={e => onUpdate({ cornerRadius: +e.target.value })} className="w-full accent-blue-500" /></label>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Border ({panel.borderWidth || 1}px)</span>
+        <input type="range" min={0} max={8} defaultValue={panel.borderWidth || 1} onChange={e => onUpdate({ borderWidth: +e.target.value })} className="w-full accent-blue-500" /></label>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Title Align</span>
+        <select defaultValue={panel.titleAlign || "left"} onChange={e => onUpdate({ titleAlign: e.target.value })} className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs">
+          <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+    </div>
+  );
+}
+
 // ── Main App ──
 export default function App() {
   const [panels, setPanels] = useState<Panel[]>(() => {
@@ -335,7 +380,7 @@ export default function App() {
   useEffect(() => {
     fetch("http://192.168.0.216:8000/obs/panel-state", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ts: Date.now(), cols: Object.fromEntries(panels.map(p => [p.id, {c:p.colStart,r:p.rowStart,cs:p.colSpan,rs:p.rowSpan,min:p.isMinimized||false}])) }),
+      body: JSON.stringify({ ts: Date.now(), cols: Object.fromEntries(panels.map(p => [p.id, {c:p.colStart,r:p.rowStart,cs:p.colSpan,rs:p.rowSpan,min:p.isMinimized||false,ta:p.titleAlign||'L'}])) }),
     }).catch(() => {});
   }, [panels]);
 
@@ -525,46 +570,7 @@ export default function App() {
       {sidebarOpen && (<BatchSidebar panels={selectedPanels} onApply={applyBatch} onClose={() => setSelectedIds(new Set())} />)}
 
       {editPanel && !batchMode && (
-        <div className="fixed right-0 top-0 h-full w-72 bg-gray-900/95 border-l border-gray-700 z-50 overflow-y-auto animate-slide-in backdrop-blur-sm p-4">
-          <div className="flex items-center justify-between mb-4"><h2 className="text-sm font-bold text-white">Edit Panel</h2><button onClick={() => setEditPanel(null)} className="text-gray-400 hover:text-white">×</button></div>
-          <label className="block mb-2"><span className="text-[10px] text-gray-400">Title</span>
-            <input defaultValue={editPanel.title} onChange={e => updatePanel(editPanel.id, { title: e.target.value })} className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs" /></label>
-          <label className="block mb-2"><span className="text-[10px] text-gray-400">Title Color</span>
-            <input type="color" value={editPanel.titleColor || editPanel.color} onChange={e => updatePanel(editPanel.id, { titleColor: e.target.value })} className="w-full h-7 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></label>
-          <label className="block mb-2"><span className="text-[10px] text-gray-400">Title Font</span>
-            <select value={editPanel.titleFont || ""} onChange={e => updatePanel(editPanel.id, { titleFont: e.target.value || undefined })}
-              className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs">
-              <option value="">Default</option>
-              <option value="Inter, sans-serif">Inter</option>
-              <option value="Georgia, serif">Georgia</option>
-              <option value="'Courier New', monospace">Courier</option>
-              <option value="'Times New Roman', serif">Times New Roman</option>
-              <option value="Verdana, sans-serif">Verdana</option>
-              <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
-              <option value="Impact, sans-serif">Impact</option>
-              <option value="'Comic Sans MS', cursive">Comic Sans</option>
-              <option value="system-ui, sans-serif">System UI</option>
-            </select></label>
-          <label className="block mb-2"><span className="text-[10px] text-gray-400">Header Bg</span>
-            <input type="color" value={editPanel.headerBg || "#1e293b"} onChange={e => updatePanel(editPanel.id, { headerBg: e.target.value })} className="w-full h-7 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></label>
-          <label className="block mb-2"><span className="text-[10px] text-gray-400">Body Bg</span>
-            <input type="color" value={editPanel.bodyBg || "#1e293b"} onChange={e => updatePanel(editPanel.id, { bodyBg: e.target.value })} className="w-full h-7 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></label>
-          <label className="block mb-2"><span className="text-[10px] text-gray-400">Col ({editPanel.colStart})</span>
-            <input type="range" min={1} max={GRID_COLS} value={editPanel.colStart} onChange={e => updatePanel(editPanel.id, { colStart: +e.target.value })} className="w-full accent-blue-500" /></label>
-          <label className="block mb-2"><span className="text-[10px] text-gray-400">Row ({editPanel.rowStart})</span>
-            <input type="range" min={1} max={20} value={editPanel.rowStart} onChange={e => updatePanel(editPanel.id, { rowStart: +e.target.value })} className="w-full accent-blue-500" /></label>
-          <label className="block mb-2"><span className="text-[10px] text-gray-400">Width ({editPanel.colSpan})</span>
-            <input type="range" min={1} max={GRID_COLS} value={editPanel.colSpan} onChange={e => updatePanel(editPanel.id, { colSpan: +e.target.value })} className="w-full accent-blue-500" /></label>
-          <label className="block mb-2"><span className="text-[10px] text-gray-400">Height ({editPanel.rowSpan})</span>
-            <input type="range" min={1} max={6} value={editPanel.rowSpan} onChange={e => updatePanel(editPanel.id, { rowSpan: +e.target.value })} className="w-full accent-blue-500" /></label>
-          <label className="block mb-2"><span className="text-[10px] text-gray-400">Radius ({editPanel.cornerRadius})</span>
-            <input type="range" min={0} max={40} value={editPanel.cornerRadius} onChange={e => updatePanel(editPanel.id, { cornerRadius: +e.target.value })} className="w-full accent-blue-500" /></label>
-          <label className="block mb-2"><span className="text-[10px] text-gray-400">Border ({editPanel.borderWidth || 1}px)</span>
-            <input type="range" min={0} max={8} value={editPanel.borderWidth || 1} onChange={e => updatePanel(editPanel.id, { borderWidth: +e.target.value })} className="w-full accent-blue-500" /></label>
-          <label className="block mb-2"><span className="text-[10px] text-gray-400">Title Align</span>
-            <select value={editPanel.titleAlign || "left"} onChange={e => updatePanel(editPanel.id, { titleAlign: e.target.value })} className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs">
-              <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
-        </div>
+        <EditPanel key={editPanel.id} panel={editPanel} onClose={() => setEditPanel(null)} onUpdate={(ch) => updatePanel(editPanel.id, ch)} />
       )}
       <style>{`@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}.animate-slide-in{animation:slideIn .15s ease-out}`}</style>
     </div>
