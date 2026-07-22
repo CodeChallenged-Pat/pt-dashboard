@@ -18,14 +18,14 @@ export interface Panel extends PanelConfig { id: number; }
 const GRID_COLS = 12;
 
 const DEFAULT_PANELS: Panel[] = [
-  { id: 1, priority: 1, title: "Today's Sales", colStart: 1, rowStart: 1, colSpan: 4, rowSpan: 2, cornerRadius: 16, color: "#3b82f6", content: "📊 $12,345" },
-  { id: 2, priority: 2, title: "Security Events", colStart: 5, rowStart: 1, colSpan: 2, rowSpan: 1, cornerRadius: 12, color: "#ef4444", content: "🔒 3 cancels" },
-  { id: 3, priority: 3, title: "Tender Breakdown", colStart: 7, rowStart: 1, colSpan: 3, rowSpan: 2, cornerRadius: 20, color: "#10b981", content: "💳 Cash 45%" },
-  { id: 4, priority: 4, title: "Hourly Traffic", colStart: 10, rowStart: 1, colSpan: 3, rowSpan: 1, cornerRadius: 14, color: "#f59e0b", content: "📈 287 customers" },
-  { id: 5, priority: 5, title: "Staff Performance", colStart: 5, rowStart: 2, colSpan: 2, rowSpan: 1, cornerRadius: 10, color: "#8b5cf6", content: "👤 Krishna $4,521" },
-  { id: 6, priority: 6, title: "Site Health", colStart: 10, rowStart: 2, colSpan: 3, rowSpan: 1, cornerRadius: 12, color: "#06b6d4", content: "🟢 3 sites OK" },
-  { id: 7, priority: 7, title: "FX Rates", colStart: 1, rowStart: 3, colSpan: 2, rowSpan: 1, cornerRadius: 8, color: "#ec4899", content: "💱 NZD/USD 0.61" },
-  { id: 8, priority: 8, title: "Yesterday", colStart: 3, rowStart: 3, colSpan: 4, rowSpan: 1, cornerRadius: 16, color: "#64748b", content: "📅 $48,920 · 1,247 items" },
+  { id: 1, priority: 1, title: "Today's Sales", colStart: 1, rowStart: 1, colSpan: 4, rowSpan: 4, cornerRadius: 16, color: "#3b82f6", content: "📊 $12,345" },
+  { id: 2, priority: 2, title: "Security Events", colStart: 5, rowStart: 1, colSpan: 2, rowSpan: 2, cornerRadius: 12, color: "#ef4444", content: "🔒 3 cancels" },
+  { id: 3, priority: 3, title: "Tender Breakdown", colStart: 7, rowStart: 1, colSpan: 3, rowSpan: 4, cornerRadius: 20, color: "#10b981", content: "💳 Cash 45%" },
+  { id: 4, priority: 4, title: "Hourly Traffic", colStart: 10, rowStart: 1, colSpan: 3, rowSpan: 2, cornerRadius: 14, color: "#f59e0b", content: "📈 287 customers" },
+  { id: 5, priority: 5, title: "Staff Performance", colStart: 5, rowStart: 3, colSpan: 2, rowSpan: 2, cornerRadius: 10, color: "#8b5cf6", content: "👤 Krishna $4,521" },
+  { id: 6, priority: 6, title: "Site Health", colStart: 10, rowStart: 3, colSpan: 3, rowSpan: 2, cornerRadius: 12, color: "#06b6d4", content: "🟢 3 sites OK" },
+  { id: 7, priority: 7, title: "FX Rates", colStart: 1, rowStart: 5, colSpan: 2, rowSpan: 2, cornerRadius: 8, color: "#ec4899", content: "💱 NZD/USD 0.61" },
+  { id: 8, priority: 8, title: "Yesterday", colStart: 3, rowStart: 5, colSpan: 4, rowSpan: 2, cornerRadius: 16, color: "#64748b", content: "📅 $48,920 · 1,247 items" },
 ];
 
 // ── Panel Card ──
@@ -49,7 +49,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
     let lastX = e.clientX, lastY = e.clientY;
     let accCol = 0, accRow = 0;
     const colPx = window.innerWidth / GRID_COLS;
-    const rowPx = 100 + gapSize;  // grid row height + gap for snapping
+    const rowPx = 40 + gapSize;  // grid row height + gap for snapping
 
     const onMoveFn = (ev: MouseEvent) => {
       const fdx = ev.clientX - lastX; const fdy = ev.clientY - lastY;
@@ -97,7 +97,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
 
   return (
     <div className={`relative group transition-all duration-200 ${batchMode ? "cursor-pointer" : ""}`}
-      style={{ gridColumn: `${colStart} / span ${colSpan}`, gridRow: `${rowStart} / span ${isMinimized ? 1 : rowSpan}`, minHeight: isMinimized ? 36 : rowSpan * 100, zIndex }}
+      style={{ gridColumn: `${colStart} / span ${colSpan}`, gridRow: `${rowStart} / span ${isMinimized ? 1 : rowSpan}`, minHeight: isMinimized ? 36 : rowSpan * (40 + gapSize), zIndex }}
       onClick={batchMode ? (e) => { e.stopPropagation(); onClick(e.shiftKey); } : undefined}>
 
       {/* Glow */}
@@ -261,19 +261,32 @@ export default function App() {
       const panel = prev.find(p => p.id === id);
       if (!panel) return prev;
       const willMinimize = !panel.isMinimized;
+      // Track original rowStart so we can restore on expand
+      const origRowStarts: Record<number, number> = {};
+      prev.forEach(p => { origRowStarts[p.id] = p.rowStart; });
+      
       let updated = prev.map(p => p.id === id ? { ...p, isMinimized: willMinimize } : p);
+      
       if (willMinimize) {
-        // Shift panels below up into freed space
+        // Minimize: shift panels below up
         updated = updated.map(p => {
           if (p.id === id || p.rowStart <= panel.rowStart) return p;
           if (p.isLocked) return p;
-          // Check if this panel overlaps horizontally with the minimized one
           const pEnd = p.colStart + p.colSpan;
           const mEnd = panel.colStart + panel.colSpan;
-          const overlap = p.colStart < mEnd && pEnd > panel.colStart;
-          if (overlap) {
-            const shift = panel.rowSpan - 1; // freed rows (minimized = 1 row, was rowSpan)
-            if (shift > 0) return { ...p, rowStart: Math.max(1, p.rowStart - shift) };
+          if (p.colStart < mEnd && pEnd > panel.colStart) {
+            const shiftRows = panel.rowSpan - 1;
+            if (shiftRows > 0) return { ...p, rowStart: Math.max(1, p.rowStart - shiftRows), _origRowStart: origRowStarts[p.id] };
+          }
+          return p;
+        });
+      } else {
+        // Maximize: restore panels to original positions
+        updated = updated.map(p => {
+          if ((p as any)._origRowStart && p.rowStart < (p as any)._origRowStart) {
+            const restored = { ...p, rowStart: (p as any)._origRowStart };
+            delete (restored as any)._origRowStart;
+            return restored;
           }
           return p;
         });
@@ -289,7 +302,7 @@ export default function App() {
   const addPanel = useCallback(() => {
     const maxId = panels.reduce((m, p) => Math.max(m, p.id), 0);
     const maxP = panels.reduce((m, p) => Math.max(m, p.priority), 0);
-    setPanels(prev => [...prev, { id: maxId+1, priority: maxP+1, title: `Panel ${maxId+1}`, colStart: 1, rowStart: 1, colSpan: 2, rowSpan: 1, cornerRadius: 14, color: `hsl(${Math.random()*360},70%,55%)`, content: "✨" }]);
+    setPanels(prev => [...prev, { id: maxId+1, priority: maxP+1, title: `Panel ${maxId+1}`, colStart: 1, rowStart: 1, colSpan: 2, rowSpan: 2, cornerRadius: 14, color: `hsl(${Math.random()*360},70%,55%)`, content: "✨" }]);
   }, [panels]);
 
   // Auto-layout panels to avoid overlapping
@@ -352,7 +365,7 @@ export default function App() {
       </header>
 
       <div ref={gridRef} className="grid"
-        style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`, gap: `${gapSize}px`, gridAutoRows: "100px",
+        style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`, gap: `${gapSize}px`, gridAutoRows: `${40 + gapSize}px`,
           marginRight: sidebarOpen ? "256px" : 0, transition: "margin-right 0.15s ease-out" }}>
         {sorted.map(p => (
           <DashboardPanel key={p.id} panel={p} gridRef={gridRef} batchMode={batchMode} gapSize={gapSize} zIndex={panelZIndex[p.id] || 0} onToggleLock={() => toggleLock(p.id)} onToggleMinimize={() => toggleMinimize(p.id)}
