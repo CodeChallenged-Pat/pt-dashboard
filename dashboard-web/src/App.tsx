@@ -290,11 +290,11 @@ const GRID_COLS = 12;
 const DEFAULT_PANELS: Panel[] = [
   { id: 1, priority: 1, title: "Today's Sales",    colStart: 1,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 16, color: "#3b82f6", chartType: "stat-today" },
   { id: 2, priority: 2, title: "Yesterday",         colStart: 5,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 14, color: "#64748b", chartType: "stat-yesterday" },
-  { id: 3, priority: 3, title: "This Week",         colStart: 9,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 14, color: "#10b981", chartType: "stat-week" },
+  { id: 3, priority: 3, title: "Week to date",     colStart: 9,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 14, color: "#10b981", chartType: "stat-week" },
   { id: 4, priority: 4, title: "Daily Sales (14d)", colStart: 1,  rowStart: 4, colSpan: 6, rowSpan: 5, cornerRadius: 14, color: "#f59e0b", chartType: "line-daily-sales" },
   { id: 5, priority: 5, title: "Tender Breakdown",  colStart: 7,  rowStart: 4, colSpan: 3, rowSpan: 5, cornerRadius: 14, color: "#ec4899", chartType: "pie-tender" },
   { id: 6, priority: 6, title: "Hourly Traffic",    colStart: 10, rowStart: 4, colSpan: 3, rowSpan: 5, cornerRadius: 14, color: "#06b6d4", chartType: "bar-hourly" },
-  { id: 7, priority: 7, title: "Clerk Performance", colStart: 1,  rowStart: 9, colSpan: 5, rowSpan: 5, cornerRadius: 14, color: "#8b5cf6", chartType: "bar-clerks" },
+  { id: 7, priority: 7, title: "Clerk Security",    colStart: 1,  rowStart: 9, colSpan: 5, rowSpan: 5, cornerRadius: 14, color: "#8b5cf6", chartType: "table-security" },
   { id: 8, priority: 8, title: "Clerk Details",     colStart: 6,  rowStart: 9, colSpan: 7, rowSpan: 5, cornerRadius: 14, color: "#ef4444", chartType: "table-clerks" },
 ];
 
@@ -646,6 +646,8 @@ interface MetricsData {
   hourlyTraffic: { hour: number; avg_transactions: number; avg_sales: number; avg_customers: number }[] | null;
   tenderBreakdown: { type: string; amount: number; count: number; pct: number }[] | null;
   clerkPerformance: { clerk: string; total_sales: number; transactions: number; avg_sale: number }[] | null;
+  clerkSecurity: { clerk: string; cancels: number; cancel_value: number; no_sales: number; no_sale_value: number; total_txns: number; total_value: number }[] | null;
+  [key: string]: any;
 }
 
 const API = "http://192.168.0.216:8000/api/v1/metrics";
@@ -657,7 +659,7 @@ const SITE_ID = 3;
 
 export default function App() {
   const [panels, setPanels] = useState<Panel[]>(() => {
-    const s = localStorage.getItem("ptdash-panels-v2");
+    const s = localStorage.getItem("ptdash-panels-v3");
     return s ? JSON.parse(s) : DEFAULT_PANELS;
   });
   const [editPanel, setEditPanel] = useState<Panel | null>(null);
@@ -678,6 +680,7 @@ export default function App() {
     hourlyTraffic: null,
     tenderBreakdown: null,
     clerkPerformance: null,
+    clerkSecurity: null,
   });
   const [metricsLoading, setMetricsLoading] = useState(true);
 
@@ -686,22 +689,24 @@ export default function App() {
     let cancelled = false;
     async function fetchAll() {
       try {
-        const [summaryRes, dailyRes, hourlyRes, tenderRes, clerkRes] = await Promise.all([
+        const [summaryRes, dailyRes, hourlyRes, tenderRes, clerkRes, clerkSecRes] = await Promise.all([
           fetch(`${API}/summary-stats?site_id=${SITE_ID}`),
           fetch(`${API}/daily-sales?site_id=${SITE_ID}`),
           fetch(`${API}/hourly-traffic?site_id=${SITE_ID}`),
           fetch(`${API}/tender-breakdown?site_id=${SITE_ID}`),
           fetch(`${API}/clerk-performance?site_id=${SITE_ID}`),
+          fetch(`${API}/clerk-security?site_id=${SITE_ID}`),
         ]);
-        const [summary, dailySales, hourlyTraffic, tenderBreakdown, clerkPerformance] = await Promise.all([
+        const [summary, dailySales, hourlyTraffic, tenderBreakdown, clerkPerformance, clerkSecurity] = await Promise.all([
           summaryRes.json(),
           dailyRes.json(),
           hourlyRes.json(),
           tenderRes.json(),
           clerkRes.json(),
+          clerkSecRes.json(),
         ]);
         if (!cancelled) {
-          setMetrics({ summary, dailySales, hourlyTraffic, tenderBreakdown, clerkPerformance });
+          setMetrics({ summary, dailySales, hourlyTraffic, tenderBreakdown, clerkPerformance, clerkSecurity });
           setMetricsLoading(false);
         }
       } catch (err) {
@@ -800,7 +805,7 @@ export default function App() {
   // Clean _savedRowStart from panels before saving to localStorage
   useEffect(() => {
     const clean = panels.map(({ _savedRowStart, ...p }: any) => p);
-    localStorage.setItem("ptdash-panels-v2", JSON.stringify(clean));
+    localStorage.setItem("ptdash-panels-v3", JSON.stringify(clean));
   }, [panels]);
 
   const cycleDock = useCallback(() => {
@@ -853,6 +858,7 @@ export default function App() {
     if (!metrics) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No data</div>;
 
     const s = metrics.summary;
+    const cs = metrics.clerkSecurity;
     const ds = metrics.dailySales;
     const ht = metrics.hourlyTraffic;
     const tb = metrics.tenderBreakdown;
@@ -872,7 +878,7 @@ export default function App() {
       }
       case "stat-week": {
         if (!s) return null;
-        return <StatCard value={`$${(s.week?.sales || 0).toLocaleString(undefined, {minimumFractionDigits:0,maximumFractionDigits:0})}`} label="This Week" color="#10b981" />;
+        return <StatCard value={`$${(s.week?.sales || 0).toLocaleString(undefined, {minimumFractionDigits:0,maximumFractionDigits:0})}`} label="Week to date" color="#10b981" />;
       }
       case "line-daily-sales": {
         if (!ds) return null;
@@ -920,13 +926,19 @@ export default function App() {
         }
         return <ColumnChart data={bars} color="#06b6d4" />;
       }
-      case "bar-clerks": {
-        if (!cp) return null;
-        const top6 = cp.slice(0, 6).map((d: any) => ({
-          label: d.clerk?.split(' ')[0] || d.clerk, // first name
-          value: d.total_sales || 0,
-        }));
-        return <BarChart data={top6} color="#8b5cf6" valueLabel="$" />;
+      case "table-security": {
+        if (!cs || !cs.length) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No security data</div>;
+        const headers = ["Clerk", "Cancels", "Cancel $", "No-Sales", "Refunds", "Refund $", "Total $"];
+        const rows = cs.slice(0, 6).map((d: any) => [
+          d.clerk?.split(' ')[0] || d.clerk,
+          String(d.cancels || 0),
+          '$' + (d.cancel_value || 0).toFixed(0),
+          String(d.no_sales || 0),
+          String(d.refunds || 0),
+          '$' + (d.refund_value || 0).toFixed(0),
+          '$' + (d.total_value || 0).toFixed(0),
+        ]);
+        return <DataTable headers={headers} rows={rows} />;
       }
       case "table-clerks": {
         if (!cp) return null;
