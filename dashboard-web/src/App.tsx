@@ -58,7 +58,8 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
     let curCol = colSpan, curRow = rowSpan;
     let lastX = e.clientX, lastY = e.clientY;
     let accCol = 0, accRow = 0;
-    const colPx = window.innerWidth / GRID_COLS;
+    const gridRect = gridRef.current?.getBoundingClientRect();
+    const colPx = gridRect ? (gridRect.width - (GRID_COLS - 1) * gapSize) / GRID_COLS : window.innerWidth / GRID_COLS;
     const rowPx = 40 + gapSize;  // grid row height + gap for snapping
 
     const onMoveFn = (ev: MouseEvent) => {
@@ -84,8 +85,8 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
     const grid = gridRef.current;
     if (!grid) return;
     const gridRect = grid.getBoundingClientRect();
-    const colPx = gridRect.width / GRID_COLS;
-    const rowPx = 100 + gapSize;
+    const colPx = (gridRect.width - (GRID_COLS - 1) * gapSize) / GRID_COLS;  // actual column width minus gaps
+    const rowPx = 40 + gapSize;
     let curC = colStart, curR = rowStart;
     let lastX = e.clientX, lastY = e.clientY;
     let accC = 0, accR = 0;
@@ -336,7 +337,7 @@ export default function App() {
   useEffect(() => {
     fetch("http://192.168.0.216:8000/obs/panel-state", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ts: Date.now(), cols: Object.fromEntries(panels.map(p => [p.id, {c:p.colStart,r:p.rowStart,cs:p.colSpan,rs:p.rowSpan}])) }),
+      body: JSON.stringify({ ts: Date.now(), cols: Object.fromEntries(panels.map(p => [p.id, {c:p.colStart,r:p.rowStart,cs:p.colSpan,rs:p.rowSpan,min:p.isMinimized||false}])) }),
     }).catch(() => {});
   }, [panels]);
 
@@ -533,7 +534,7 @@ export default function App() {
         <div className="fixed right-0 top-0 h-full w-72 bg-gray-900/95 border-l border-gray-700 z-50 overflow-y-auto animate-slide-in backdrop-blur-sm p-4">
           <div className="flex items-center justify-between mb-4"><h2 className="text-sm font-bold text-white">Edit Panel</h2><button onClick={() => setEditPanel(null)} className="text-gray-400 hover:text-white">×</button></div>
           <label className="block mb-2"><span className="text-[10px] text-gray-400">Title</span>
-            <input value={editPanel.title} onChange={e => updatePanel(editPanel.id, { title: e.target.value })} className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs" /></label>
+            <input defaultValue={editPanel.title} onChange={e => updatePanel(editPanel.id, { title: e.target.value })} className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs" /></label>
           <label className="block mb-2"><span className="text-[10px] text-gray-400">Title Color</span>
             <input type="color" value={editPanel.titleColor || editPanel.color} onChange={e => updatePanel(editPanel.id, { titleColor: e.target.value })} className="w-full h-7 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></label>
           <label className="block mb-2"><span className="text-[10px] text-gray-400">Title Font</span>
