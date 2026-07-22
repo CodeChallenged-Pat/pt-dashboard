@@ -29,7 +29,7 @@ const DEFAULT_PANELS: Panel[] = [
 ];
 
 // ── Panel Card ──
-function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMove, onEdit, onRemove, onToggleLock, gridRef, gapSize, zIndex }: {
+function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMove, onEdit, onRemove, onToggleLock, onToggleMinimize, gridRef, gapSize, zIndex }: {
   panel: Panel; isSelected: boolean; batchMode: boolean;
   onClick: (shift: boolean) => void; onResize: (colSpan: number, rowSpan: number) => void;
   onMove: (colStart: number, rowStart: number) => void; onEdit: () => void; onRemove: () => void;
