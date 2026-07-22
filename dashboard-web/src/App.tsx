@@ -119,14 +119,14 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
             {isMinimized && <span className="text-[10px] text-gray-500 shrink-0">—</span>}
           </div>
           <div className={`flex gap-1 ${batchMode ? "" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
-            {batchMode && (<>
+            {batchMode && (
               <button onClick={onToggleLock}
                 className={`w-6 h-6 flex items-center justify-center rounded text-xs transition-colors ${locked ? "bg-amber-500/20 text-amber-400" : "hover:bg-white/10 text-gray-400 hover:text-white"}`}
                 title={locked ? "Unlock" : "Lock"}>🔒</button>
-              <button onClick={onToggleMinimize}
-                className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs"
-                title={isMinimized ? "Expand" : "Minimize"}>−</button>
-            </>)}
+            )}
+            <button onClick={onToggleMinimize}
+              className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs"
+              title={isMinimized ? "Expand" : "Minimize"}>−</button>
             {!batchMode && (<>
               <button onClick={onEdit} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs">⚙️</button>
               <DeleteButton onConfirm={onRemove} />
