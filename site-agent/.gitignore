@@ -1,0 +1,5 @@
+*.pyc
+__pycache__/
+*.log
+sync_state.db
+config.yaml

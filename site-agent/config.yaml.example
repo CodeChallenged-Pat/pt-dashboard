@@ -1,0 +1,46 @@
+# Site Agent — Configuration
+# Copy to config.yaml and fill in your values
+
+site:
+  # The store code registered in the cloud dashboard
+  store_code: "STORE001"
+  # Display name for the site
+  name: "My Store"
+
+cloud:
+  # Cloud API base URL
+  api_url: "http://192.168.0.216:8000"
+  # Site API key (generated when site is registered in cloud dashboard)
+  api_key: "ptsk_YOUR_API_KEY_HERE"
+
+firebird:
+  # Path to Firebird client library (fbclient.dll on Windows)
+  client_lib: "C:/Program Files/Firebird/Firebird_2_5/bin/fbclient.dll"
+  # Connection details for PTPos database
+  ptpos:
+    host: "localhost"
+    port: 3050
+    database: "C:/ProfitTrack/Data/PTPos.fdb"
+    user: "SYSDBA"
+    password: "masterkey"
+  # Connection details for PTReport database (optional, for aggregated data)
+  ptreport:
+    host: "localhost"
+    port: 3050
+    database: "C:/ProfitTrack/Data/PTReport.fdb"
+    user: "SYSDBA"
+    password: "masterkey"
+
+sync:
+  # Polling interval in seconds (how often to check for new data)
+  interval_seconds: 30
+  # Batch size for each POST
+  batch_size: 500
+  # Number of days back to sync on first run (0 = all)
+  initial_days_back: 7
+  # Data tiers to sync (tier1 = raw EJ data)
+  tiers:
+    - tier1
+
+# Local SQLite database for tracking sync state
+state_db: "sync_state.db"
