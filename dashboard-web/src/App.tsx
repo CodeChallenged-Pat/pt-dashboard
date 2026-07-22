@@ -114,8 +114,8 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
       <div className="absolute inset-0 blur-xl opacity-30 group-hover:opacity-50" style={{ backgroundColor: glowColor, borderRadius: `${cornerRadius}px` }} />
 
       {/* Card body */}
-      <div className={`relative h-full border flex flex-col group-hover:shadow-lg ${isSelected ? "ring-2 ring-offset-1 ring-offset-gray-950" : ""}`}
-        style={{ backgroundColor: bodyBg || "#1e293b", borderRadius: `${cornerRadius}px`, borderColor: isSelected ? "#f59e0b" : color + "44", boxShadow: isSelected ? `0 0 20px ${color}66` : `0 0 12px ${glowColor}`, borderWidth: `${bw}px` }}>
+      <div className={`relative h-full flex flex-col group-hover:shadow-lg ${isSelected ? "ring-2 ring-offset-1 ring-offset-gray-950" : ""}`}
+        style={{ backgroundColor: bodyBg || "#1e293b", borderRadius: `${cornerRadius}px`, borderStyle: "solid", borderColor: isSelected ? "#f59e0b" : color + "44", boxShadow: isSelected ? `0 0 20px ${color}66` : `0 0 12px ${glowColor}`, borderWidth: `${bw}px` }}>
         {isSelected && <div className="absolute inset-0 pointer-events-none" style={{ borderRadius: `${cornerRadius}px`, background: `${color}11` }} />}
 
         {/* Header — draggable in batch mode (unless locked) */}
