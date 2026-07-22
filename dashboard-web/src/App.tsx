@@ -362,6 +362,7 @@ export default function App() {
           const maxP = panels.reduce((m, p) => Math.max(m, p.priority), 0);
           const newPanel: Panel = {
             ...clipboard, id: maxId + 1, priority: maxP + 1,
+            title: clipboard.title?.replace(/ Copy( \d+)?$/, '') + ` Copy ${offset}`,
             colStart: Math.min(GRID_COLS - clipboard.colSpan + 1, clipboard.colStart + offset),
             rowStart: Math.max(1, clipboard.rowStart + offset),
           };
