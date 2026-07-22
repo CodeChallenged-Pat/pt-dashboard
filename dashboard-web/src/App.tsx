@@ -176,12 +176,12 @@ function ColumnChart({ data, color }: {
 
 // 4. PieChart — SVG circle segments
 function PieChart({ data }: {
-  data: { label: string; value: number; color: string }[];
+  data: { label: string; value: number; color: string; amount?: string }[];
 }) {
   if (!data.length) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No data</div>;
   const total = data.reduce((s, d) => s + d.value, 0) || 1;
-  const size = 160;
-  const cx = size / 2, cy = size / 2, r = size / 2 - 5;
+  const size = 140;
+  const cx = size / 2, cy = size / 2, r = size / 2 - 3;
 
   let cumulativeAngle = -Math.PI / 2;
   const slices = data.map(d => {
@@ -204,7 +204,7 @@ function PieChart({ data }: {
     const ly = cy + labelR * Math.sin(midAngle);
     const pct = ((d.value / total) * 100).toFixed(1);
 
-    return { pathD, color: d.color, label: d.label, pct, lx, ly };
+    return { pathD, color: d.color, label: d.label, pct, lx, ly, amount: d.amount };
   });
 
   const PIE_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899"];
@@ -224,7 +224,7 @@ function PieChart({ data }: {
         {slices.map((s, i) => (
           <div key={i} className="flex items-center gap-1 text-[10px] text-gray-400">
             <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color || PIE_COLORS[i % PIE_COLORS.length] }} />
-            {s.label}
+            {s.label} <span className="text-gray-300">{s.amount || `${s.pct}%`}</span>
           </div>
         ))}
       </div>
@@ -899,10 +899,13 @@ export default function App() {
       case "pie-tender": {
         if (!tb) return null;
         const PIE_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899"];
-        const data = tb.map((d: any, i: number) => ({
+        const data = tb
+          .filter((d: any) => d.amount > 0 && d.pct > 0)
+          .map((d: any, i: number) => ({
           label: d.type,
           value: d.pct,
           color: PIE_COLORS[i % PIE_COLORS.length],
+          amount: d.amount >= 1000 ? `$${(d.amount/1000).toFixed(1)}k` : `$${d.amount.toFixed(0)}`,
         }));
         return <PieChart data={data} />;
       }
