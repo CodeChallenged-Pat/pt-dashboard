@@ -212,6 +212,20 @@ function BatchSidebar({ panels, onApply, onClose }: {
   });
   const [newThemeName, setNewThemeName] = useState("");
 
+  // Track initial position values so we don't move panels on style-only apply
+  const initPos = useRef({ colStart, rowStart, colSpan, rowSpan });
+  useEffect(() => { initPos.current = { colStart, rowStart, colSpan, rowSpan }; }, [panels]);
+
+  const doApply = () => {
+    const changes: Partial<PanelConfig> = { cornerRadius, color, titleColor, titleFont: titleFont || undefined, headerBg: headerBg || undefined, bodyBg: bodyBg || undefined, borderWidth, titleAlign };
+    // Only include position if actually changed
+    if (colStart !== initPos.current.colStart) changes.colStart = colStart;
+    if (rowStart !== initPos.current.rowStart) changes.rowStart = rowStart;
+    if (colSpan !== initPos.current.colSpan) changes.colSpan = colSpan;
+    if (rowSpan !== initPos.current.rowSpan) changes.rowSpan = rowSpan;
+    onApply(changes);
+  };
+
   const saveTheme = () => {
     if (!newThemeName.trim()) return;
     const t = { name: newThemeName, color, titleColor, headerBg, bodyBg, cornerRadius, borderWidth, titleAlign };
@@ -279,7 +293,7 @@ function BatchSidebar({ panels, onApply, onClose }: {
           </div>
         </div>
 
-        <button onClick={() => onApply({ colStart, rowStart, colSpan, rowSpan, cornerRadius, color, titleColor, titleFont: titleFont || undefined, headerBg: headerBg || undefined, bodyBg: bodyBg || undefined, borderWidth, titleAlign })}
+        <button onClick={doApply}
           className="w-full py-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded text-xs font-bold mb-2">Apply to {panels.length}</button>
 
         <div className="border-t border-gray-700/50 pt-1">{panels.map(p => <div key={p.id} className="flex items-center gap-1 py-0.5 text-[9px] text-gray-400">
