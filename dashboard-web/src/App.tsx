@@ -1,4 +1,202 @@
-import React, { useState, useCallback, useEffect, useRef } from "react";
+import React, { useState, useCallback, useEffect, useRef, ReactNode } from "react";
+
+// ═══════════════════════════════════════════════
+//  Chart Components
+// ═══════════════════════════════════════════════
+
+// 1. StatCard — large number + label + delta indicator
+function StatCard({ value, label, delta, deltaLabel, color }: {
+  value: string; label: string; delta?: number; deltaLabel?: string; color: string;
+}) {
+  const isPositive = delta !== undefined && delta >= 0;
+  const deltaStr = delta !== undefined ? `${isPositive ? '▲' : '▼'} ${Math.abs(delta).toFixed(1)}%` : '';
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-1.5">
+      <div className="text-4xl font-bold tracking-tight" style={{ color }}>{value}</div>
+      <div className="text-xs text-gray-400 uppercase tracking-wider">{label}</div>
+      {delta !== undefined && (
+        <div className={`text-xs font-semibold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
+          {deltaStr} {deltaLabel && <span className="text-gray-500 font-normal">vs {deltaLabel}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 2. LineChart — simple SVG polyline
+function LineChart({ data, color, valueLabel }: {
+  data: { label: string; value: number }[]; color: string; valueLabel?: string;
+}) {
+  if (!data.length) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No data</div>;
+  const W = 400, H = 220;
+  const pad = { top: 15, right: 15, bottom: 28, left: 50 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+  const maxVal = Math.max(...data.map(d => d.value), 1);
+  const minVal = 0;
+  const range = maxVal - minVal || 1;
+
+  const points = data.map((d, i) => {
+    const x = pad.left + (i / Math.max(data.length - 1, 1)) * plotW;
+    const y = pad.top + plotH - ((d.value - minVal) / range) * plotH;
+    return `${x},${y}`;
+  }).join(' ');
+
+  const yTicks = 4;
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+      {/* Grid lines */}
+      {Array.from({ length: yTicks + 1 }, (_, i) => {
+        const y = pad.top + (i / yTicks) * plotH;
+        return <line key={`g-${i}`} x1={pad.left} y1={y} x2={pad.left + plotW} y2={y} stroke="#334155" strokeWidth="0.5" />;
+      })}
+      {/* Y-axis labels */}
+      {Array.from({ length: yTicks + 1 }, (_, i) => {
+        const val = maxVal - (i / yTicks) * range;
+        const y = pad.top + (i / yTicks) * plotH;
+        const label = val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val.toFixed(0);
+        return <text key={`y-${i}`} x={pad.left - 6} y={y + 4} textAnchor="end" fill="#64748b" fontSize="9">{label}</text>;
+      })}
+      {/* Area fill */}
+      {(() => {
+        const areaPoints = `${pad.left},${pad.top + plotH} ` + points + ` ${pad.left + plotW},${pad.top + plotH}`;
+        return <polygon points={areaPoints} fill={color} opacity="0.1" />;
+      })()}
+      {/* Line */}
+      <polyline points={points} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+      {/* Dots */}
+      {data.map((d, i) => {
+        const x = pad.left + (i / Math.max(data.length - 1, 1)) * plotW;
+        const y = pad.top + plotH - ((d.value - minVal) / range) * plotH;
+        return <circle key={`dot-${i}`} cx={x} cy={y} r="2.5" fill={color} />;
+      })}
+      {/* X-axis labels */}
+      {data.map((d, i) => {
+        const step = Math.max(1, Math.ceil(data.length / 8));
+        if (i % step !== 0 && i !== data.length - 1) return null;
+        const x = pad.left + (i / Math.max(data.length - 1, 1)) * plotW;
+        return <text key={`x-${i}`} x={x} y={H - 5} textAnchor="middle" fill="#64748b" fontSize="8">{d.label}</text>;
+      })}
+    </svg>
+  );
+}
+
+// 3. BarChart — horizontal bars
+function BarChart({ data, color, valueLabel }: {
+  data: { label: string; value: number }[]; color: string; valueLabel?: string;
+}) {
+  if (!data.length) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No data</div>;
+  const maxVal = Math.max(...data.map(d => d.value), 1);
+  return (
+    <div className="flex flex-col gap-2 w-full h-full justify-center px-2">
+      {data.map((d, i) => {
+        const pct = (d.value / maxVal) * 100;
+        return (
+          <div key={d.label} className="flex items-center gap-2">
+            <div className="w-20 text-right shrink-0">
+              <span className="text-[10px] text-gray-400 truncate block" title={d.label}>{d.label}</span>
+            </div>
+            <div className="flex-1 h-5 bg-gray-800 rounded-full overflow-hidden relative">
+              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: color, opacity: 0.8 }} />
+            </div>
+            <span className="text-[10px] text-gray-300 w-14 shrink-0 text-right">
+              {valueLabel === '$' ? '$' : ''}{d.value >= 1000 ? `${(d.value / 1000).toFixed(1)}k` : d.value.toFixed(0)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// 4. PieChart — SVG circle segments
+function PieChart({ data }: {
+  data: { label: string; value: number; color: string }[];
+}) {
+  if (!data.length) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No data</div>;
+  const total = data.reduce((s, d) => s + d.value, 0) || 1;
+  const size = 160;
+  const cx = size / 2, cy = size / 2, r = size / 2 - 5;
+
+  let cumulativeAngle = -Math.PI / 2;
+  const slices = data.map(d => {
+    const sliceAngle = (d.value / total) * 2 * Math.PI;
+    const startAngle = cumulativeAngle;
+    const endAngle = cumulativeAngle + sliceAngle;
+    cumulativeAngle = endAngle;
+
+    const x1 = cx + r * Math.cos(startAngle);
+    const y1 = cy + r * Math.sin(startAngle);
+    const x2 = cx + r * Math.cos(endAngle);
+    const y2 = cy + r * Math.sin(endAngle);
+
+    const largeArc = sliceAngle > Math.PI ? 1 : 0;
+    const pathD = `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`;
+
+    const midAngle = startAngle + sliceAngle / 2;
+    const labelR = r * 0.6;
+    const lx = cx + labelR * Math.cos(midAngle);
+    const ly = cy + labelR * Math.sin(midAngle);
+    const pct = ((d.value / total) * 100).toFixed(1);
+
+    return { pathD, color: d.color, label: d.label, pct, lx, ly };
+  });
+
+  const PIE_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899"];
+  return (
+    <div className="flex flex-col items-center gap-2 h-full justify-center">
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="shrink-0">
+        {slices.map((s, i) => (
+          <g key={i}>
+            <path d={s.pathD} fill={s.color || PIE_COLORS[i % PIE_COLORS.length]} stroke="#1e293b" strokeWidth="1.5" />
+            {parseFloat(s.pct) >= 5 && (
+              <text x={s.lx} y={s.ly + 1} textAnchor="middle" fill="#fff" fontSize="10" fontWeight="bold">{s.pct}%</text>
+            )}
+          </g>
+        ))}
+      </svg>
+      <div className="flex flex-wrap justify-center gap-x-3 gap-y-0.5">
+        {slices.map((s, i) => (
+          <div key={i} className="flex items-center gap-1 text-[10px] text-gray-400">
+            <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color || PIE_COLORS[i % PIE_COLORS.length] }} />
+            {s.label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// 5. DataTable — simple HTML table
+function DataTable({ headers, rows }: { headers: string[]; rows: (string | number)[][] }) {
+  if (!rows.length) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No data</div>;
+  return (
+    <div className="overflow-auto max-h-full w-full">
+      <table className="w-full text-xs border-collapse">
+        <thead className="sticky top-0 bg-[#1e293b]">
+          <tr className="border-b border-gray-700">
+            {headers.map((h, i) => (
+              <th key={i} className="text-left py-1.5 px-2 text-gray-400 font-semibold whitespace-nowrap">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, ri) => (
+            <tr key={ri} className="border-b border-gray-800 hover:bg-white/5 transition-colors">
+              {row.map((cell, ci) => (
+                <td key={ci} className="py-1 px-2 text-gray-300 whitespace-nowrap">{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════
+//  Panel Types & Defaults
+// ═══════════════════════════════════════════════
 
 export interface PanelConfig {
   priority: number;
@@ -10,6 +208,7 @@ export interface PanelConfig {
   cornerRadius: number;
   color: string;
   content?: string;
+  chartType?: string;
   isLocked?: boolean;
   isMinimized?: boolean;
   titleColor?: string;
@@ -24,22 +223,26 @@ export interface Panel extends PanelConfig { id: number; }
 const GRID_COLS = 12;
 
 const DEFAULT_PANELS: Panel[] = [
-  { id: 1, priority: 1, title: "Today's Sales", colStart: 1, rowStart: 1, colSpan: 4, rowSpan: 4, cornerRadius: 16, color: "#3b82f6", content: "📊 $12,345" },
-  { id: 2, priority: 2, title: "Security Events", colStart: 5, rowStart: 1, colSpan: 2, rowSpan: 2, cornerRadius: 12, color: "#ef4444", content: "🔒 3 cancels" },
-  { id: 3, priority: 3, title: "Tender Breakdown", colStart: 7, rowStart: 1, colSpan: 3, rowSpan: 4, cornerRadius: 20, color: "#10b981", content: "💳 Cash 45%" },
-  { id: 4, priority: 4, title: "Hourly Traffic", colStart: 10, rowStart: 1, colSpan: 3, rowSpan: 2, cornerRadius: 14, color: "#f59e0b", content: "📈 287 customers" },
-  { id: 5, priority: 5, title: "Staff Performance", colStart: 5, rowStart: 3, colSpan: 2, rowSpan: 2, cornerRadius: 10, color: "#8b5cf6", content: "👤 Krishna $4,521" },
-  { id: 6, priority: 6, title: "Site Health", colStart: 10, rowStart: 3, colSpan: 3, rowSpan: 2, cornerRadius: 12, color: "#06b6d4", content: "🟢 3 sites OK" },
-  { id: 7, priority: 7, title: "FX Rates", colStart: 1, rowStart: 5, colSpan: 2, rowSpan: 2, cornerRadius: 8, color: "#ec4899", content: "💱 NZD/USD 0.61" },
-  { id: 8, priority: 8, title: "Yesterday", colStart: 3, rowStart: 5, colSpan: 4, rowSpan: 2, cornerRadius: 16, color: "#64748b", content: "📅 $48,920 · 1,247 items" },
+  { id: 1, priority: 1, title: "Today's Sales",    colStart: 1,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 16, color: "#3b82f6", chartType: "stat-today" },
+  { id: 2, priority: 2, title: "Yesterday",         colStart: 5,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 14, color: "#64748b", chartType: "stat-yesterday" },
+  { id: 3, priority: 3, title: "This Week",         colStart: 9,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 14, color: "#10b981", chartType: "stat-week" },
+  { id: 4, priority: 4, title: "Daily Sales (14d)", colStart: 1,  rowStart: 4, colSpan: 6, rowSpan: 5, cornerRadius: 14, color: "#f59e0b", chartType: "line-daily-sales" },
+  { id: 5, priority: 5, title: "Tender Breakdown",  colStart: 7,  rowStart: 4, colSpan: 3, rowSpan: 5, cornerRadius: 14, color: "#ec4899", chartType: "pie-tender" },
+  { id: 6, priority: 6, title: "Hourly Traffic",    colStart: 10, rowStart: 4, colSpan: 3, rowSpan: 5, cornerRadius: 14, color: "#06b6d4", chartType: "line-hourly" },
+  { id: 7, priority: 7, title: "Clerk Performance", colStart: 1,  rowStart: 9, colSpan: 5, rowSpan: 5, cornerRadius: 14, color: "#8b5cf6", chartType: "bar-clerks" },
+  { id: 8, priority: 8, title: "Clerk Details",     colStart: 6,  rowStart: 9, colSpan: 7, rowSpan: 5, cornerRadius: 14, color: "#ef4444", chartType: "table-clerks" },
 ];
 
-// ── Panel Card ──
-function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMove, onEdit, onRemove, onToggleLock, onToggleMinimize, gridRef, gapSize, zIndex }: {
+// ═══════════════════════════════════════════════
+//  DashboardPanel
+// ═══════════════════════════════════════════════
+
+function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMove, onEdit, onRemove, onToggleLock, onToggleMinimize, gridRef, gapSize, zIndex, children }: {
   panel: Panel; isSelected: boolean; batchMode: boolean;
   onClick: (shift: boolean) => void; onResize: (colSpan: number, rowSpan: number) => void;
   onMove: (colStart: number, rowStart: number) => void; onEdit: () => void; onRemove: () => void;
   onToggleLock: () => void; onToggleMinimize: () => void; gridRef: React.RefObject<HTMLDivElement | null>; gapSize: number; zIndex: number;
+  children?: ReactNode;
 }) {
   const { priority, title, colStart, rowStart, colSpan, rowSpan, cornerRadius, color, content, isLocked, isMinimized, titleColor, titleFont, headerBg, bodyBg, borderWidth, titleAlign } = panel;
   const locked = isLocked === true;
@@ -51,7 +254,6 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
   const resizeRef = useRef<HTMLDivElement>(null);
   const isResizing = useRef(false);
 
-  // ── Resize (corner handle) ──
   const onResizeStart = (e: React.MouseEvent) => {
     e.preventDefault(); e.stopPropagation();
     isResizing.current = true;
@@ -60,7 +262,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
     let accCol = 0, accRow = 0;
     const gridRect = gridRef.current?.getBoundingClientRect();
     const colPx = gridRect ? (gridRect.width - (GRID_COLS - 1) * gapSize) / GRID_COLS : window.innerWidth / GRID_COLS;
-    const rowPx = 40 + gapSize;  // grid row height + gap for snapping
+    const rowPx = 40 + gapSize;
 
     const onMoveFn = (ev: MouseEvent) => {
       const fdx = ev.clientX - lastX; const fdy = ev.clientY - lastY;
@@ -77,7 +279,6 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
     window.addEventListener("mouseup", onUpFn);
   };
 
-  // ── Drag to move (header bar) ──
   const onHeaderDown = (e: React.MouseEvent) => {
     if (!batchMode) return;
     e.preventDefault(); e.stopPropagation();
@@ -85,7 +286,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
     const grid = gridRef.current;
     if (!grid) return;
     const gridRect = grid.getBoundingClientRect();
-    const colPx = (gridRect.width - (GRID_COLS - 1) * gapSize) / GRID_COLS;  // actual column width minus gaps
+    const colPx = (gridRect.width - (GRID_COLS - 1) * gapSize) / GRID_COLS;
     const rowPx = 40 + gapSize;
     let curC = colStart, curR = rowStart;
     let lastX = e.clientX, lastY = e.clientY;
@@ -114,21 +315,17 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
       style={{ gridColumn: `${colStart} / span ${colSpan}`, gridRow: `${rowStart} / span ${isMinimized ? 1 : rowSpan}`, minHeight: isMinimized ? 36 : rowSpan * (40 + gapSize), zIndex }}
       onClick={batchMode ? (e) => { e.stopPropagation(); onClick(e.shiftKey); } : undefined}>
 
-      {/* Glow */}
       <div className="absolute inset-0 blur-xl opacity-30 group-hover:opacity-50" style={{ backgroundColor: glowColor, borderRadius: `${cornerRadius}px` }} />
 
-      {/* Card body */}
       <div className={`relative h-full flex flex-col group-hover:shadow-lg ${isSelected ? "ring-2 ring-offset-1 ring-offset-gray-950" : ""}`}
         style={{ backgroundColor: bodyBg || "#1e293b", borderRadius: `${cornerRadius}px`, borderStyle: "solid", borderColor: isSelected ? "#f59e0b" : color + "44", boxShadow: isSelected ? `0 0 20px ${color}66` : `0 0 12px ${glowColor}`, borderWidth: `${bw}px` }}>
         {isSelected && <div className="absolute inset-0 pointer-events-none" style={{ borderRadius: `${cornerRadius}px`, background: `${color}11` }} />}
 
-        {/* Header — draggable in batch mode (unless locked) */}
         <div className={`flex items-center px-3 py-2 shrink-0 relative ${batchMode && !locked ? "cursor-grab active:cursor-grabbing" : ""}`}
           style={{ borderBottom: isMinimized ? "none" : `1px solid ${color}33`, backgroundColor: headerBg || "transparent", borderTopLeftRadius: `${cornerRadius}px`, borderTopRightRadius: `${cornerRadius}px` }}
           onMouseDown={batchMode && !locked ? onHeaderDown : undefined}
           onDoubleClick={onToggleMinimize}>
           
-          {/* Left buttons (only for RIGHT alignment) */}
           {titleAlign === "right" && (
             <div className={`flex gap-1 z-10 ${batchMode ? "" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
               {!batchMode && (<><button onClick={onEdit} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs">⚙️</button><DeleteButton onConfirm={onRemove} /></>)}
@@ -136,7 +333,6 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
             </div>
           )}
           
-          {/* Title — centered absolutely or positioned normally */}
           <div className="flex items-center gap-1.5 min-w-0" style={titleAlign === "center" 
             ? { position: 'absolute', left: '50%', transform: 'translateX(-50%)', zIndex: 1 }
             : { flex: 1, justifyContent: titleAlign === "right" ? "flex-end" : "flex-start", paddingRight: titleAlign !== "right" ? 0 : undefined }
@@ -145,7 +341,6 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
             <span className="text-xs font-semibold truncate" style={{ color: headerColor, fontFamily: headerFont }}>{title}</span>
           </div>
           
-          {/* Right buttons (for LEFT or CENTER alignment), + minimize always right */}
           <div className="flex items-center gap-1 ml-auto z-10">
             {titleAlign !== "right" && (
               <div className={`flex gap-1 ${batchMode ? "" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
@@ -159,14 +354,13 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
           </div>
         </div>
 
-        {/* Content (hidden when minimized) */}
         {!isMinimized && (<>
-        <div className="flex-1 flex items-center justify-center p-3 min-h-0">
-          {content ? <span className="text-lg text-gray-200 text-center">{content}</span>
+        <div className={`flex-1 min-h-0 ${children ? '' : 'flex items-center justify-center p-3'}`}>
+          {children ? children
+            : content ? <span className="text-lg text-gray-200 text-center">{content}</span>
             : <span className="text-gray-500 text-xs">Panel content</span>}
         </div>
 
-        {/* Resize handle (hidden if locked) */}
         {batchMode && !locked && (
           <div ref={resizeRef} onMouseDown={onResizeStart}
             className="absolute bottom-1 right-1 w-8 h-8 cursor-se-resize z-10 flex items-end justify-end rounded-br-lg hover:bg-white/5" style={{ color }}>
@@ -174,7 +368,6 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
           </div>
         )}
 
-        {/* Position footer */}
         <div className="px-3 py-1 text-[9px] text-gray-500 flex justify-between border-t border-gray-700/30 opacity-0 group-hover:opacity-100">
           <span>c{colStart}r{rowStart} · {colSpan}×{rowSpan}</span>
           <span>P{priority}</span>
@@ -185,7 +378,10 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
   );
 }
 
-// ── Delete confirmation button ──
+// ═══════════════════════════════════════════════
+//  Delete Button
+// ═══════════════════════════════════════════════
+
 function DeleteButton({ onConfirm }: { onConfirm: () => void }) {
   const [show, setShow] = useState(false);
   if (show) {
@@ -202,7 +398,10 @@ function DeleteButton({ onConfirm }: { onConfirm: () => void }) {
   );
 }
 
-// ── Batch Sidebar ──
+// ═══════════════════════════════════════════════
+//  Batch Sidebar
+// ═══════════════════════════════════════════════
+
 function BatchSidebar({ panels, onApply, onClose }: {
   panels: Panel[]; onApply: (c: Partial<PanelConfig>) => void; onClose: () => void;
 }) {
@@ -220,19 +419,16 @@ function BatchSidebar({ panels, onApply, onClose }: {
   const [titleAlign, setTa] = useState(panels[0]?.titleAlign || "left");
   const COLS = ["#3b82f6","#ef4444","#10b981","#f59e0b","#8b5cf6","#06b6d4","#ec4899","#64748b","#f97316","#84cc16"];
 
-  // Theme presets
   const [themes, setThemes] = useState<{name:string,color:string,titleColor:string,headerBg:string,bodyBg:string,cornerRadius:number,borderWidth:number,titleAlign:string}[]>(() => {
     try { return JSON.parse(localStorage.getItem("ptdash-themes") || "[]"); } catch { return []; }
   });
   const [newThemeName, setNewThemeName] = useState("");
 
-  // Track initial position values so we don't move panels on style-only apply
   const initPos = useRef({ colStart, rowStart, colSpan, rowSpan });
   useEffect(() => { initPos.current = { colStart, rowStart, colSpan, rowSpan }; }, [panels]);
 
   const doApply = () => {
     const changes: Partial<PanelConfig> = { cornerRadius, color, titleColor, titleFont: titleFont || undefined, headerBg: headerBg || undefined, bodyBg: bodyBg || undefined, borderWidth, titleAlign };
-    // Only include position if actually changed
     if (colStart !== initPos.current.colStart) changes.colStart = colStart;
     if (rowStart !== initPos.current.rowStart) changes.rowStart = rowStart;
     if (colSpan !== initPos.current.colSpan) changes.colSpan = colSpan;
@@ -279,7 +475,6 @@ function BatchSidebar({ panels, onApply, onClose }: {
         <div className="mb-3"><span className="text-[10px] text-gray-400 block mb-1">Color</span>
           <div className="flex flex-wrap gap-1 mb-1">{COLS.map(c => <button key={c} onClick={() => setColor(c)} className="w-5 h-5 rounded-full border" style={{ backgroundColor: c, borderColor: color===c?"#fff":"transparent" }} />)}</div></div>
 
-        {/* Title color & font */}
         <div className="mb-2"><span className="text-[10px] text-gray-400 block mb-0.5">Title Color</span>
           <input type="color" value={titleColor} onChange={e => setTitleColor(e.target.value)} className="w-full h-6 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></div>
         <div className="mb-3"><span className="text-[10px] text-gray-400 block mb-0.5">Title Font</span>
@@ -293,13 +488,11 @@ function BatchSidebar({ panels, onApply, onClose }: {
             <option value="Impact, sans-serif">Impact</option>
             <option value="'Comic Sans MS', cursive">Comic Sans</option></select></div>
 
-        {/* Header Bg & Body Bg */}
         <div className="mb-1"><span className="text-[10px] text-gray-400 block mb-0.5">Header Bg</span>
           <input type="color" value={headerBg || "#1e293b"} onChange={e => setHeaderBg(e.target.value)} className="w-full h-6 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></div>
         <div className="mb-2"><span className="text-[10px] text-gray-400 block mb-0.5">Body Bg</span>
           <input type="color" value={bodyBg || "#1e293b"} onChange={e => setBodyBg(e.target.value)} className="w-full h-6 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></div>
 
-        {/* Themes */}
         <div className="mb-3 border-t border-gray-700/50 pt-2">
           <span className="text-[10px] text-gray-400 block mb-1">Themes</span>
           {themes.length > 0 && <div className="flex flex-wrap gap-1 mb-1">{themes.map(t => (
@@ -324,7 +517,10 @@ function BatchSidebar({ panels, onApply, onClose }: {
   );
 }
 
-// ── Edit Panel Sidebar ──
+// ═══════════════════════════════════════════════
+//  Edit Panel Sidebar
+// ═══════════════════════════════════════════════
+
 function EditPanel({ panel, onClose, onUpdate }: { panel: Panel; onClose: () => void; onUpdate: (ch: Partial<PanelConfig>) => void }) {
   const [id, setId] = useState(panel.id);
   const [, forceUpdate] = useState(0);
@@ -369,7 +565,31 @@ function EditPanel({ panel, onClose, onUpdate }: { panel: Panel; onClose: () => 
   );
 }
 
-// ── Main App ──
+// ═══════════════════════════════════════════════
+//  API types
+// ═══════════════════════════════════════════════
+
+interface MetricsData {
+  summary: {
+    today: { sales: number; transactions: number };
+    yesterday: { sales: number; transactions: number };
+    week: { sales: number; transactions: number };
+    active_clerks: number;
+    cancels_today: number;
+  } | null;
+  dailySales: { date: string; gross: number; nett: number; transactions: number; cancels: number }[] | null;
+  hourlyTraffic: { hour: number; avg_transactions: number; avg_sales: number; avg_customers: number }[] | null;
+  tenderBreakdown: { type: string; amount: number; count: number; pct: number }[] | null;
+  clerkPerformance: { clerk: string; total_sales: number; transactions: number; avg_sale: number }[] | null;
+}
+
+const API = "http://192.168.0.216:8000/api/v1/metrics";
+const SITE_ID = 3;
+
+// ═══════════════════════════════════════════════
+//  Main App
+// ═══════════════════════════════════════════════
+
 export default function App() {
   const [panels, setPanels] = useState<Panel[]>(() => {
     const s = localStorage.getItem("ptdash-panels-v2");
@@ -386,9 +606,51 @@ export default function App() {
   const [clipboard, setClipboard] = useState<PanelConfig | null>(null);
   const [pasteCount, setPasteCount] = useState(0);
 
+  // ── Metrics data state ──
+  const [metrics, setMetrics] = useState<MetricsData>({
+    summary: null,
+    dailySales: null,
+    hourlyTraffic: null,
+    tenderBreakdown: null,
+    clerkPerformance: null,
+  });
+  const [metricsLoading, setMetricsLoading] = useState(true);
+
+  // Fetch all metrics on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchAll() {
+      try {
+        const [summaryRes, dailyRes, hourlyRes, tenderRes, clerkRes] = await Promise.all([
+          fetch(`${API}/summary-stats?site_id=${SITE_ID}`),
+          fetch(`${API}/daily-sales?site_id=${SITE_ID}`),
+          fetch(`${API}/hourly-traffic?site_id=${SITE_ID}`),
+          fetch(`${API}/tender-breakdown?site_id=${SITE_ID}`),
+          fetch(`${API}/clerk-performance?site_id=${SITE_ID}`),
+        ]);
+        const [summary, dailySales, hourlyTraffic, tenderBreakdown, clerkPerformance] = await Promise.all([
+          summaryRes.json(),
+          dailyRes.json(),
+          hourlyRes.json(),
+          tenderRes.json(),
+          clerkRes.json(),
+        ]);
+        if (!cancelled) {
+          setMetrics({ summary, dailySales, hourlyTraffic, tenderBreakdown, clerkPerformance });
+          setMetricsLoading(false);
+        }
+      } catch (err) {
+        console.error("Metrics fetch failed:", err);
+        if (!cancelled) setMetricsLoading(false);
+      }
+    }
+    fetchAll();
+    return () => { cancelled = true; };
+  }, []);
+
   useEffect(() => { localStorage.setItem("ptdash-gap", String(gapSize)); }, [gapSize]);
 
-  // Live observer — POSTs panel positions on every change so I can tail-f logs
+  // Live observer — POSTs panel positions on every change
   useEffect(() => {
     fetch("http://192.168.0.216:8000/obs/panel-state", {
       method: "POST", headers: { "Content-Type": "application/json" },
@@ -439,7 +701,6 @@ export default function App() {
   }, [selectedIds]);
   const toggleSelect = useCallback((id: number, shift: boolean) => {
     setSelectedIds(prev => { if (!shift) return new Set([id]); const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
-    // Bring to front
     setZCounter(c => { const next = c + 1; setPanelZIndex(p => ({ ...p, [id]: next })); return next; });
   }, []);
 
@@ -452,21 +713,13 @@ export default function App() {
       const panel = prev.find(p => p.id === id);
       if (!panel) return prev;
       const willMinimize = !panel.isMinimized;
-      
-      // Find all panels in the same column stack (overlapping horizontally, not locked)
       const pLeft = panel.colStart; const pRight = panel.colStart + panel.colSpan;
       const stack = prev.filter(p => 
         p.id !== id && !p.isLocked &&
         (p.colStart < pRight && p.colStart + p.colSpan > pLeft)
       );
-      
-      // Toggle the target panel
       const toggled = { ...panel, isMinimized: willMinimize };
-      
-      // Build the full column: toggled panel + stack, sorted by rowStart
       const all = [...stack, toggled].sort((a, b) => a.rowStart - b.rowStart);
-      
-      // Recalculate rowStart positions in order — rope ladder, starting from original top
       const baseRow = Math.min(...all.map(p => p.rowStart));
       let nextRow = baseRow;
       const repositioned = all.map(p => {
@@ -474,14 +727,12 @@ export default function App() {
         nextRow += (p.isMinimized ? 1 : p.rowSpan);
         return r;
       });
-      
-      // Merge back: keep panels not in the stack unchanged
       const stackIds = new Set(repositioned.map(p => p.id));
       return prev.map(p => stackIds.has(p.id) ? repositioned.find(r => r.id === p.id)! : p);
     });
   }, []);
 
-  // Clean _savedRowStart from panels before saving to localStorage (no longer needed, but keep for safety)
+  // Clean _savedRowStart from panels before saving to localStorage
   useEffect(() => {
     const clean = panels.map(({ _savedRowStart, ...p }: any) => p);
     localStorage.setItem("ptdash-panels-v2", JSON.stringify(clean));
@@ -497,13 +748,11 @@ export default function App() {
     setPanels(prev => [...prev, { id: maxId+1, priority: maxP+1, title: `Panel ${maxId+1}`, colStart: 1, rowStart: 1, colSpan: 2, rowSpan: 2, cornerRadius: 14, color: `hsl(${Math.random()*360},70%,55%)`, content: "✨" }]);
   }, [panels]);
 
-  // Auto-layout panels to avoid overlapping
   const scatterPanels = useCallback(() => {
     const sorted = [...panels].sort((a, b) => a.priority - b.priority);
     const locked = panels.filter(p => p.isLocked);
     const unlocked = sorted.filter(p => !p.isLocked);
     const occupied = new Set<string>();
-    // Mark locked panel positions as occupied
     locked.forEach(p => {
       for (let dr = 0; dr < p.rowSpan; dr++)
         for (let dc = 0; dc < p.colSpan; dc++)
@@ -527,10 +776,89 @@ export default function App() {
     });
     setPanels([...locked, ...scattered]);
   }, [panels]);
+
   const removePanel = useCallback((id: number) => {
     setPanels(prev => prev.filter(p => p.id !== id));
     setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
   }, []);
+
+  // ── Render chart content for each panel type ──
+  const renderChart = useCallback((chartType: string | undefined): ReactNode => {
+    if (metricsLoading) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">Loading metrics...</div>;
+    if (!metrics) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No data</div>;
+
+    const s = metrics.summary;
+    const ds = metrics.dailySales;
+    const ht = metrics.hourlyTraffic;
+    const tb = metrics.tenderBreakdown;
+    const cp = metrics.clerkPerformance;
+
+    switch (chartType) {
+      case "stat-today": {
+        if (!s) return null;
+        const today = s.today?.sales || 0;
+        const yesterday = s.yesterday?.sales || 1;
+        const delta = yesterday > 0 ? ((today - yesterday) / yesterday) * 100 : today > 0 ? 100 : 0;
+        return <StatCard value={`$${today.toLocaleString(undefined, {minimumFractionDigits:0,maximumFractionDigits:0})}`} label="Today's Sales" delta={delta} deltaLabel="yesterday" color="#3b82f6" />;
+      }
+      case "stat-yesterday": {
+        if (!s) return null;
+        return <StatCard value={`$${(s.yesterday?.sales || 0).toLocaleString(undefined, {minimumFractionDigits:0,maximumFractionDigits:0})}`} label="Yesterday" color="#64748b" />;
+      }
+      case "stat-week": {
+        if (!s) return null;
+        return <StatCard value={`$${(s.week?.sales || 0).toLocaleString(undefined, {minimumFractionDigits:0,maximumFractionDigits:0})}`} label="This Week" color="#10b981" />;
+      }
+      case "line-daily-sales": {
+        if (!ds) return null;
+        const last14 = ds.slice(-14).map((d: any) => ({
+          label: d.date?.slice(5) || '', // MM-DD
+          value: d.nett || 0,
+        }));
+        return <LineChart data={last14} color="#f59e0b" valueLabel="$" />;
+      }
+      case "pie-tender": {
+        if (!tb) return null;
+        const PIE_COLORS = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6", "#06b6d4", "#ec4899"];
+        const data = tb.map((d: any, i: number) => ({
+          label: d.type,
+          value: d.pct,
+          color: PIE_COLORS[i % PIE_COLORS.length],
+        }));
+        return <PieChart data={data} />;
+      }
+      case "line-hourly": {
+        if (!ht) return null;
+        const data = ht.map((d: any) => ({
+          label: `${d.hour}:00`,
+          value: d.avg_transactions || 0,
+        }));
+        return <LineChart data={data} color="#06b6d4" />;
+      }
+      case "bar-clerks": {
+        if (!cp) return null;
+        const top6 = cp.slice(0, 6).map((d: any) => ({
+          label: d.clerk?.split(' ')[0] || d.clerk, // first name
+          value: d.total_sales || 0,
+        }));
+        return <BarChart data={top6} color="#8b5cf6" valueLabel="$" />;
+      }
+      case "table-clerks": {
+        if (!cp) return null;
+        return <DataTable
+          headers={["Clerk", "Total Sales", "Transactions", "Avg Sale"]}
+          rows={cp.map((d: any) => [
+            d.clerk,
+            `$${d.total_sales?.toLocaleString(undefined, {minimumFractionDigits:2,maximumFractionDigits:2}) || '0.00'}`,
+            String(d.transactions || 0),
+            `$${d.avg_sale?.toFixed(2) || '0.00'}`,
+          ])}
+        />;
+      }
+      default:
+        return null;
+    }
+  }, [metrics, metricsLoading]);
 
   const sorted = [...panels].sort((a, b) => a.priority - b.priority);
   const selectedPanels = panels.filter(p => selectedIds.has(p.id));
@@ -556,7 +884,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Batch mode banner */}
       {batchMode && (
         <div className="flex items-center justify-center mb-3">
           <div className="bg-amber-500/10 border border-amber-500/30 rounded-full px-4 py-1.5 flex items-center gap-3">
@@ -575,7 +902,9 @@ export default function App() {
             isSelected={selectedIds.has(p.id)} onClick={(shift) => toggleSelect(p.id, shift)}
             onResize={(colSpan, rowSpan) => updatePanel(p.id, { colSpan, rowSpan })}
             onMove={(colStart, rowStart) => updatePanel(p.id, { colStart, rowStart })}
-            onEdit={() => setEditPanel(p)} onRemove={() => removePanel(p.id)} />
+            onEdit={() => setEditPanel(p)} onRemove={() => removePanel(p.id)}>
+            {renderChart(p.chartType)}
+          </DashboardPanel>
         ))}
       </div>
 
