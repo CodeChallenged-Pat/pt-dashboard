@@ -398,39 +398,35 @@ export default function App() {
       if (!panel) return prev;
       const willMinimize = !panel.isMinimized;
       
-      if (willMinimize) {
-        // Minimize: save original rowStart per panel, then shift below panels up
-        const savedStarts: Record<number, number> = {};
-        prev.forEach(p => { savedStarts[p.id] = p.rowStart; });
-        return prev.map(p => {
-          if (p.id === id) return { ...p, isMinimized: true, _savedRowStart: p.rowStart };
-          // Shift panels that overlap horizontally and are directly below
-          if (p.rowStart > panel.rowStart && !p.isLocked) {
-            const overlap = p.colStart < (panel.colStart + panel.colSpan) && (p.colStart + p.colSpan) > panel.colStart;
-            if (overlap) {
-              const shift = panel.rowSpan - 1;
-              if (shift > 0) return { ...p, rowStart: Math.max(1, p.rowStart - shift), _savedRowStart: savedStarts[p.id] };
-            }
-          }
-          return p;
-        });
-      } else {
-        // Maximize: restore this panel + any shifted panels to their saved positions
-        return prev.map(p => {
-          const changes: Partial<Panel> = {};
-          if (p.id === id) { changes.isMinimized = false; delete (changes as any)._savedRowStart; }
-          // Restore any panel that has a saved rowStart
-          if ((p as any)._savedRowStart !== undefined) {
-            changes.rowStart = (p as any)._savedRowStart;
-            delete (changes as any)._savedRowStart;
-          }
-          return Object.keys(changes).length > 0 ? { ...p, ...changes } : p;
-        });
-      }
+      // Find all panels in the same column stack (overlapping horizontally, not locked)
+      const pLeft = panel.colStart; const pRight = panel.colStart + panel.colSpan;
+      const stack = prev.filter(p => 
+        p.id !== id && !p.isLocked &&
+        (p.colStart < pRight && p.colStart + p.colSpan > pLeft)
+      );
+      
+      // Toggle the target panel
+      const toggled = { ...panel, isMinimized: willMinimize };
+      
+      // Build the full column: toggled panel + stack, sorted by rowStart
+      const all = [...stack, toggled].sort((a, b) => a.rowStart - b.rowStart);
+      
+      // Recalculate rowStart positions in order — rope ladder, starting from original top
+      const baseRow = Math.min(...all.map(p => p.rowStart));
+      let nextRow = baseRow;
+      const repositioned = all.map(p => {
+        const r = { ...p, rowStart: nextRow };
+        nextRow += (p.isMinimized ? 1 : p.rowSpan);
+        return r;
+      });
+      
+      // Merge back: keep panels not in the stack unchanged
+      const stackIds = new Set(repositioned.map(p => p.id));
+      return prev.map(p => stackIds.has(p.id) ? repositioned.find(r => r.id === p.id)! : p);
     });
   }, []);
 
-  // Clean _savedRowStart from panels before saving to localStorage
+  // Clean _savedRowStart from panels before saving to localStorage (no longer needed, but keep for safety)
   useEffect(() => {
     const clean = panels.map(({ _savedRowStart, ...p }: any) => p);
     localStorage.setItem("ptdash-panels-v2", JSON.stringify(clean));
