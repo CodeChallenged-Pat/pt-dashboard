@@ -96,7 +96,10 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
       accC += fdx / colPx; accR += fdy / rowPx;
       const sc = Math.round(accC), sr = Math.round(accR);
       let c = false;
-      if (sc !== 0) { curC = Math.max(1, Math.min(GRID_COLS, curC + sc)); accC -= sc; c = true; }
+      if (sc !== 0) {
+        curC = Math.max(1, Math.min(GRID_COLS - colSpan + 1, curC + sc));
+        accC -= sc; c = true;
+      }
       if (sr !== 0) { curR = Math.max(1, Math.min(99, curR + sr)); accR -= sr; c = true; }
       if (c) onMove(curC, curR);
     };
@@ -272,7 +275,12 @@ function BatchSidebar({ panels, onApply, onClose }: {
           <select value={titleFont} onChange={e => setTitleFont(e.target.value)}
             className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-[10px]">
             <option value="">Default</option><option value="Inter, sans-serif">Inter</option>
-            <option value="Georgia, serif">Georgia</option><option value="'Courier New', monospace">Courier</option></select></div>
+            <option value="Georgia, serif">Georgia</option><option value="'Courier New', monospace">Courier</option>
+            <option value="'Times New Roman', serif">Times New Roman</option>
+            <option value="Verdana, sans-serif">Verdana</option>
+            <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+            <option value="Impact, sans-serif">Impact</option>
+            <option value="'Comic Sans MS', cursive">Comic Sans</option></select></div>
 
         {/* Header Bg & Body Bg */}
         <div className="mb-1"><span className="text-[10px] text-gray-400 block mb-0.5">Header Bg</span>
@@ -347,8 +355,8 @@ export default function App() {
           const maxP = panels.reduce((m, p) => Math.max(m, p.priority), 0);
           const newPanel: Panel = {
             ...clipboard, id: maxId + 1, priority: maxP + 1,
-            colStart: clipboard.colStart + offset,
-            rowStart: clipboard.rowStart + offset,
+            colStart: Math.min(GRID_COLS - clipboard.colSpan + 1, clipboard.colStart + offset),
+            rowStart: Math.max(1, clipboard.rowStart + offset),
           };
           setPanels(prev => [...prev, newPanel]);
           setPasteCount(offset);
@@ -522,6 +530,11 @@ export default function App() {
               <option value="Inter, sans-serif">Inter</option>
               <option value="Georgia, serif">Georgia</option>
               <option value="'Courier New', monospace">Courier</option>
+              <option value="'Times New Roman', serif">Times New Roman</option>
+              <option value="Verdana, sans-serif">Verdana</option>
+              <option value="'Trebuchet MS', sans-serif">Trebuchet</option>
+              <option value="Impact, sans-serif">Impact</option>
+              <option value="'Comic Sans MS', cursive">Comic Sans</option>
               <option value="system-ui, sans-serif">System UI</option>
             </select></label>
           <label className="block mb-2"><span className="text-[10px] text-gray-400">Header Bg</span>
