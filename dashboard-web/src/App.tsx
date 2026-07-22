@@ -305,9 +305,45 @@ export default function App() {
   const [zCounter, setZCounter] = useState(0);
   const [panelZIndex, setPanelZIndex] = useState<Record<number, number>>({});
   const gridRef = useRef<HTMLDivElement>(null);
+  const [clipboard, setClipboard] = useState<PanelConfig | null>(null);
+  const [pasteCount, setPasteCount] = useState(0);
 
   useEffect(() => { localStorage.setItem("ptdash-panels-v2", JSON.stringify(panels)); }, [panels]);
   useEffect(() => { localStorage.setItem("ptdash-gap", String(gapSize)); }, [gapSize]);
+
+  // Ctrl+C / Ctrl+V keyboard handler
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "c") {
+        if (selectedIds.size === 1) {
+          const id = [...selectedIds][0];
+          const p = panels.find(x => x.id === id);
+          if (p) {
+            const { id: _id, ...cfg } = p;
+            setClipboard(cfg);
+            setPasteCount(0);
+          }
+        }
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "v") {
+        e.preventDefault();
+        if (clipboard) {
+          const offset = pasteCount + 1;
+          const maxId = panels.reduce((m, p) => Math.max(m, p.id), 0);
+          const maxP = panels.reduce((m, p) => Math.max(m, p.priority), 0);
+          const newPanel: Panel = {
+            ...clipboard, id: maxId + 1, priority: maxP + 1,
+            colStart: clipboard.colStart + offset,
+            rowStart: clipboard.rowStart + offset,
+          };
+          setPanels(prev => [...prev, newPanel]);
+          setPasteCount(offset);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedIds, panels, clipboard, pasteCount]);
 
   const updatePanel = useCallback((id: number, changes: Partial<PanelConfig>) => {
     setPanels(prev => prev.map(p => p.id === id ? { ...p, ...changes } : p));
