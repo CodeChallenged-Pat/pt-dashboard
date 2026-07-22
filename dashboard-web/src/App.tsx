@@ -116,8 +116,9 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
 
         {/* Header — draggable in batch mode (unless locked) */}
         <div className={`flex items-center justify-between px-3 py-2 shrink-0 ${batchMode && !locked ? "cursor-grab active:cursor-grabbing" : ""}`}
-          style={{ borderBottom: isMinimized ? "none" : `1px solid ${color}33`, backgroundColor: headerBg || "transparent" }}
-          onMouseDown={batchMode && !locked ? onHeaderDown : undefined}>
+          style={{ borderBottom: isMinimized ? "none" : `1px solid ${color}33`, backgroundColor: headerBg || "transparent", borderTopLeftRadius: `${cornerRadius}px`, borderTopRightRadius: `${cornerRadius}px` }}
+          onMouseDown={batchMode && !locked ? onHeaderDown : undefined}
+          onDoubleClick={onToggleMinimize}>
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ backgroundColor: color }}>{priority}</span>
             <span className="text-xs font-semibold truncate" style={{ color: headerColor, fontFamily: headerFont }}>{title}</span>
