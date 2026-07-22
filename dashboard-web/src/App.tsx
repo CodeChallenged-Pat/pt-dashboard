@@ -402,7 +402,7 @@ export default function App() {
   const sidebarOpen = batchMode && selectedPanels.length > 0;
 
   return (
-    <div className="min-h-screen bg-gray-950 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-950 p-4 md:p-6" style={{ marginRight: sidebarOpen ? "256px" : 0, transition: "margin-right 0.15s ease-out" }}>
       <header className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h1 className="text-xl font-bold text-white">PT Dashboard</h1>
         <div className="flex items-center gap-2 flex-wrap">
@@ -434,8 +434,7 @@ export default function App() {
       )}
 
       <div ref={gridRef} className="grid"
-        style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`, gap: `${gapSize}px`, gridAutoRows: `${40 + gapSize}px`,
-          marginRight: sidebarOpen ? "256px" : 0, transition: "margin-right 0.15s ease-out" }}>
+        style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`, gap: `${gapSize}px`, gridAutoRows: `${40 + gapSize}px` }}>
         {sorted.map(p => (
           <DashboardPanel key={p.id} panel={p} gridRef={gridRef} batchMode={batchMode} gapSize={gapSize} zIndex={panelZIndex[p.id] || 0} onToggleLock={() => toggleLock(p.id)} onToggleMinimize={() => toggleMinimize(p.id)}
             isSelected={selectedIds.has(p.id)} onClick={(shift) => toggleSelect(p.id, shift)}
