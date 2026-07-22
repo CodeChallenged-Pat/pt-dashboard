@@ -16,6 +16,8 @@ export interface PanelConfig {
   titleFont?: string;
   headerBg?: string;
   bodyBg?: string;
+  borderWidth?: number;
+  titleAlign?: string;
 }
 export interface Panel extends PanelConfig { id: number; }
 
@@ -39,10 +41,12 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
   onMove: (colStart: number, rowStart: number) => void; onEdit: () => void; onRemove: () => void;
   onToggleLock: () => void; onToggleMinimize: () => void; gridRef: React.RefObject<HTMLDivElement | null>; gapSize: number; zIndex: number;
 }) {
-  const { priority, title, colStart, rowStart, colSpan, rowSpan, cornerRadius, color, content, isLocked, isMinimized, titleColor, titleFont, headerBg, bodyBg } = panel;
+  const { priority, title, colStart, rowStart, colSpan, rowSpan, cornerRadius, color, content, isLocked, isMinimized, titleColor, titleFont, headerBg, bodyBg, borderWidth, titleAlign } = panel;
   const locked = isLocked === true;
   const headerColor = titleColor || color;
   const headerFont = titleFont || "inherit";
+  const bw = borderWidth || 1;
+  const ta = titleAlign || "left";
   const glowColor = color + "33";
   const resizeRef = useRef<HTMLDivElement>(null);
   const isResizing = useRef(false);
@@ -111,7 +115,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
 
       {/* Card body */}
       <div className={`relative h-full border flex flex-col group-hover:shadow-lg ${isSelected ? "ring-2 ring-offset-1 ring-offset-gray-950" : ""}`}
-        style={{ backgroundColor: bodyBg || "#1e293b", borderRadius: `${cornerRadius}px`, borderColor: isSelected ? "#f59e0b" : color + "44", boxShadow: isSelected ? `0 0 20px ${color}66` : `0 0 12px ${glowColor}` }}>
+        style={{ backgroundColor: bodyBg || "#1e293b", borderRadius: `${cornerRadius}px`, borderColor: isSelected ? "#f59e0b" : color + "44", boxShadow: isSelected ? `0 0 20px ${color}66` : `0 0 12px ${glowColor}`, borderWidth: `${bw}px` }}>
         {isSelected && <div className="absolute inset-0 pointer-events-none" style={{ borderRadius: `${cornerRadius}px`, background: `${color}11` }} />}
 
         {/* Header — draggable in batch mode (unless locked) */}
@@ -121,7 +125,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
           onDoubleClick={onToggleMinimize}>
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ backgroundColor: color }}>{priority}</span>
-            <span className="text-xs font-semibold truncate" style={{ color: headerColor, fontFamily: headerFont }}>{title}</span>
+            <span className="text-xs font-semibold truncate" style={{ color: headerColor, fontFamily: headerFont, textAlign: ta as any, flex: 1 }}>{title}</span>
             {locked && <span className="text-[10px] text-amber-400 shrink-0" title="Locked">🔒</span>}
             {isMinimized && <span className="text-[10px] text-gray-500 shrink-0">—</span>}
           </div>
@@ -129,7 +133,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
             {batchMode && (
               <button onClick={onToggleLock}
                 className={`w-6 h-6 flex items-center justify-center rounded text-xs transition-colors ${locked ? "bg-amber-500/20 text-amber-400" : "hover:bg-white/10 text-gray-400 hover:text-white"}`}
-                title={locked ? "Unlock" : "Lock"}>🔒</button>
+                title={locked ? "Unlock" : "Lock"}>{locked ? "🔒" : "🔓"}</button>
             )}
             <button onClick={onToggleMinimize}
               className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs"
@@ -198,17 +202,19 @@ function BatchSidebar({ panels, onApply, onClose }: {
   const [titleFont, setTitleFont] = useState(panels[0]?.titleFont || "");
   const [headerBg, setHeaderBg] = useState(panels[0]?.headerBg || "");
   const [bodyBg, setBodyBg] = useState(panels[0]?.bodyBg || "");
+  const [borderWidth, setBw] = useState(panels[0]?.borderWidth || 1);
+  const [titleAlign, setTa] = useState(panels[0]?.titleAlign || "left");
   const COLS = ["#3b82f6","#ef4444","#10b981","#f59e0b","#8b5cf6","#06b6d4","#ec4899","#64748b","#f97316","#84cc16"];
 
   // Theme presets
-  const [themes, setThemes] = useState<{name:string,color:string,titleColor:string,headerBg:string,bodyBg:string,cornerRadius:number}[]>(() => {
+  const [themes, setThemes] = useState<{name:string,color:string,titleColor:string,headerBg:string,bodyBg:string,cornerRadius:number,borderWidth:number,titleAlign:string}[]>(() => {
     try { return JSON.parse(localStorage.getItem("ptdash-themes") || "[]"); } catch { return []; }
   });
   const [newThemeName, setNewThemeName] = useState("");
 
   const saveTheme = () => {
     if (!newThemeName.trim()) return;
-    const t = { name: newThemeName, color, titleColor, headerBg, bodyBg, cornerRadius };
+    const t = { name: newThemeName, color, titleColor, headerBg, bodyBg, cornerRadius, borderWidth, titleAlign };
     const updated = [...themes.filter(x => x.name !== newThemeName), t];
     setThemes(updated);
     localStorage.setItem("ptdash-themes", JSON.stringify(updated));
@@ -216,7 +222,7 @@ function BatchSidebar({ panels, onApply, onClose }: {
   };
 
   const applyTheme = (t: typeof themes[0]) => {
-    setColor(t.color); setTitleColor(t.titleColor); setCR(t.cornerRadius); setHeaderBg(t.headerBg); setBodyBg(t.bodyBg);
+    setColor(t.color); setTitleColor(t.titleColor); setCR(t.cornerRadius); setHeaderBg(t.headerBg); setBodyBg(t.bodyBg); setBw(t.borderWidth || 1); setTa(t.titleAlign || "left");
   };
 
   return (
@@ -236,6 +242,11 @@ function BatchSidebar({ panels, onApply, onClose }: {
           <input type="range" min={1} max={6} step={1} value={rowSpan} onChange={e => setRowSpan(+e.target.value)} className="w-full accent-blue-500" /></label>
         <label className="block mb-2"><span className="text-[10px] text-gray-400 block mb-0.5">Radius ({cornerRadius}px)</span>
           <input type="range" min={0} max={40} step={2} value={cornerRadius} onChange={e => setCR(+e.target.value)} className="w-full accent-blue-500" /></label>
+        <label className="block mb-2"><span className="text-[10px] text-gray-400 block mb-0.5">Border ({borderWidth}px)</span>
+          <input type="range" min={0} max={8} step={1} value={borderWidth} onChange={e => setBw(+e.target.value)} className="w-full accent-blue-500" /></label>
+        <label className="block mb-2"><span className="text-[10px] text-gray-400 block mb-0.5">Title Align</span>
+          <select value={titleAlign} onChange={e => setTa(e.target.value)} className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-[10px]">
+            <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
 
         <div className="mb-3"><span className="text-[10px] text-gray-400 block mb-1">Color</span>
           <div className="flex flex-wrap gap-1 mb-1">{COLS.map(c => <button key={c} onClick={() => setColor(c)} className="w-5 h-5 rounded-full border" style={{ backgroundColor: c, borderColor: color===c?"#fff":"transparent" }} />)}</div></div>
@@ -268,7 +279,7 @@ function BatchSidebar({ panels, onApply, onClose }: {
           </div>
         </div>
 
-        <button onClick={() => onApply({ colStart, rowStart, colSpan, rowSpan, cornerRadius, color, titleColor, titleFont: titleFont || undefined, headerBg: headerBg || undefined, bodyBg: bodyBg || undefined })}
+        <button onClick={() => onApply({ colStart, rowStart, colSpan, rowSpan, cornerRadius, color, titleColor, titleFont: titleFont || undefined, headerBg: headerBg || undefined, bodyBg: bodyBg || undefined, borderWidth, titleAlign })}
           className="w-full py-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded text-xs font-bold mb-2">Apply to {panels.length}</button>
 
         <div className="border-t border-gray-700/50 pt-1">{panels.map(p => <div key={p.id} className="flex items-center gap-1 py-0.5 text-[9px] text-gray-400">
@@ -417,7 +428,7 @@ export default function App() {
             className={`w-9 h-9 flex items-center justify-center rounded text-sm ${dockMode !== 'full' ? "bg-blue-500/20 text-blue-400" : "bg-gray-800 text-gray-400 hover:text-white"}`}
             title={`Dock: ${dockMode === 'full' ? 'Full screen' : dockMode === 'right' ? 'Docked right' : 'Docked left'} — click to cycle`}>⊞</button>
           <button onClick={() => { setBatchMode(!batchMode); setSelectedIds(new Set()); }}
-            className={`w-9 h-9 flex items-center justify-center rounded text-base ${batchMode ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50" : "bg-gray-800 text-gray-400 hover:text-white"}`}
+            className={`w-9 h-9 flex items-center justify-center rounded text-2xl ${batchMode ? "bg-amber-500/20 text-amber-400 ring-1 ring-amber-500/50" : "bg-gray-800 text-gray-400 hover:text-white"}`}
             title="Batch mode — shift+click to select, drag header to move, drag corner to resize">⚙</button>
         </div>
       </header>
@@ -477,6 +488,11 @@ export default function App() {
             <input type="range" min={1} max={6} value={editPanel.rowSpan} onChange={e => updatePanel(editPanel.id, { rowSpan: +e.target.value })} className="w-full accent-blue-500" /></label>
           <label className="block mb-2"><span className="text-[10px] text-gray-400">Radius ({editPanel.cornerRadius})</span>
             <input type="range" min={0} max={40} value={editPanel.cornerRadius} onChange={e => updatePanel(editPanel.id, { cornerRadius: +e.target.value })} className="w-full accent-blue-500" /></label>
+          <label className="block mb-2"><span className="text-[10px] text-gray-400">Border ({editPanel.borderWidth || 1}px)</span>
+            <input type="range" min={0} max={8} value={editPanel.borderWidth || 1} onChange={e => updatePanel(editPanel.id, { borderWidth: +e.target.value })} className="w-full accent-blue-500" /></label>
+          <label className="block mb-2"><span className="text-[10px] text-gray-400">Title Align</span>
+            <select value={editPanel.titleAlign || "left"} onChange={e => updatePanel(editPanel.id, { titleAlign: e.target.value })} className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs">
+              <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
         </div>
       )}
       <style>{`@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}.animate-slide-in{animation:slideIn .15s ease-out}`}</style>
