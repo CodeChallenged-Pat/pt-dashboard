@@ -30,7 +30,7 @@ function LineChart({ data, color, valueLabel, avgValue, weekdayLabels }: {
 }) {
   if (!data.length) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No data</div>;
   const W = 400, H = 240;
-  const pad = { top: 15, right: 15, bottom: 36, left: 50 };
+  const pad = { top: 15, right: 8, bottom: 36, left: 40 };
   const plotW = W - pad.left - pad.right;
   const plotH = H - pad.top - pad.bottom;
   const maxVal = Math.max(...data.map(d => d.value), Math.max(avgValue || 0, 1));
@@ -75,12 +75,14 @@ function LineChart({ data, color, valueLabel, avgValue, weekdayLabels }: {
       {avgValue !== undefined && avgValue > 0 && (
         <>
           <line x1={pad.left} y1={pad.top + plotH - ((avgValue - minVal) / range) * plotH}
-                x2={pad.left + plotW - 40} y2={pad.top + plotH - ((avgValue - minVal) / range) * plotH}
+                x2={pad.left + plotW} y2={pad.top + plotH - ((avgValue - minVal) / range) * plotH}
                 stroke="#94a3b8" strokeWidth="1" strokeDasharray="4,3" />
-          <text x={pad.left + plotW - 36} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH - 4}
-                textAnchor="start" fill="#64748b" fontSize="7">avg</text>
-          <text x={pad.left + plotW - 36} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH + 7}
-                textAnchor="start" fill="#94a3b8" fontSize="8" fontWeight="bold">
+          <rect x={pad.left + plotW - 44} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH - 10}
+                width="44" height="20" rx="3" fill="#0f172a" opacity="0.85" />
+          <text x={pad.left + plotW - 4} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH - 2}
+                textAnchor="end" fill="#64748b" fontSize="7">avg</text>
+          <text x={pad.left + plotW - 4} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH + 7}
+                textAnchor="end" fill="#94a3b8" fontSize="8" fontWeight="bold">
             ${avgValue >= 1000 ? (avgValue/1000).toFixed(1) + 'k' : avgValue.toFixed(0)}
           </text>
         </>
