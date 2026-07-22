@@ -23,16 +23,17 @@ function StatCard({ value, label, delta, deltaLabel, color }: {
   );
 }
 
-// 2. LineChart — simple SVG polyline
-function LineChart({ data, color, valueLabel }: {
-  data: { label: string; value: number }[]; color: string; valueLabel?: string;
+// 2. LineChart — simple SVG polyline with weekday labels, avg line, weekend shading
+function LineChart({ data, color, valueLabel, avgValue, weekdayLabels }: {
+  data: { label: string; value: number; isWeekend?: boolean }[]; color: string; valueLabel?: string;
+  avgValue?: number; weekdayLabels?: string[];
 }) {
   if (!data.length) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No data</div>;
-  const W = 400, H = 220;
-  const pad = { top: 15, right: 15, bottom: 28, left: 50 };
+  const W = 400, H = 240;
+  const pad = { top: 15, right: 15, bottom: 36, left: 50 };
   const plotW = W - pad.left - pad.right;
   const plotH = H - pad.top - pad.bottom;
-  const maxVal = Math.max(...data.map(d => d.value), 1);
+  const maxVal = Math.max(...data.map(d => d.value), Math.max(avgValue || 0, 1));
   const minVal = 0;
   const range = maxVal - minVal || 1;
 
@@ -43,8 +44,21 @@ function LineChart({ data, color, valueLabel }: {
   }).join(' ');
 
   const yTicks = 4;
+  const xStep = data.length / plotW; // items per pixel
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+      {/* Chart area background */}
+      <rect x={pad.left} y={pad.top} width={plotW} height={plotH} fill="#1e293b" rx="4" opacity="0.5" />
+
+      {/* Weekend shading */}
+      {data.map((d, i) => {
+        if (!d.isWeekend) return null;
+        const x = pad.left + (i / Math.max(data.length - 1, 1)) * plotW;
+        const barW = plotW / data.length;
+        return <rect key={`we-${i}`} x={x - barW / 2} y={pad.top} width={barW} height={plotH} fill="#334155" opacity="0.4" />;
+      })}
+
       {/* Grid lines */}
       {Array.from({ length: yTicks + 1 }, (_, i) => {
         const y = pad.top + (i / yTicks) * plotH;
@@ -57,6 +71,16 @@ function LineChart({ data, color, valueLabel }: {
         const label = val >= 1000 ? `${(val / 1000).toFixed(1)}k` : val.toFixed(0);
         return <text key={`y-${i}`} x={pad.left - 6} y={y + 4} textAnchor="end" fill="#64748b" fontSize="9">{label}</text>;
       })}
+      {/* Average line */}
+      {avgValue !== undefined && avgValue > 0 && (
+        <>
+          <line x1={pad.left} y1={pad.top + plotH - ((avgValue - minVal) / range) * plotH}
+                x2={pad.left + plotW} y2={pad.top + plotH - ((avgValue - minVal) / range) * plotH}
+                stroke="#94a3b8" strokeWidth="1" strokeDasharray="4,3" />
+          <text x={pad.left + plotW + 4} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH + 3}
+                fill="#94a3b8" fontSize="8">avg</text>
+        </>
+      )}
       {/* Area fill */}
       {(() => {
         const areaPoints = `${pad.left},${pad.top + plotH} ` + points + ` ${pad.left + plotW},${pad.top + plotH}`;
@@ -70,12 +94,18 @@ function LineChart({ data, color, valueLabel }: {
         const y = pad.top + plotH - ((d.value - minVal) / range) * plotH;
         return <circle key={`dot-${i}`} cx={x} cy={y} r="2.5" fill={color} />;
       })}
-      {/* X-axis labels */}
+      {/* X-axis labels — day name + date */}
       {data.map((d, i) => {
-        const step = Math.max(1, Math.ceil(data.length / 8));
+        const step = Math.max(1, Math.ceil(data.length / 7));
         if (i % step !== 0 && i !== data.length - 1) return null;
         const x = pad.left + (i / Math.max(data.length - 1, 1)) * plotW;
-        return <text key={`x-${i}`} x={x} y={H - 5} textAnchor="middle" fill="#64748b" fontSize="8">{d.label}</text>;
+        const dayName = weekdayLabels ? weekdayLabels[i] : '';
+        return (
+          <g key={`x-${i}`}>
+            {dayName && <text x={x} y={H - 14} textAnchor="middle" fill="#64748b" fontSize="7">{dayName}</text>}
+            <text x={x} y={H - 3} textAnchor="middle" fill="#64748b" fontSize="8">{d.label}</text>
+          </g>
+        );
       })}
     </svg>
   );
@@ -811,11 +841,25 @@ export default function App() {
       }
       case "line-daily-sales": {
         if (!ds) return null;
-        const last14 = ds.slice(-14).map((d: any) => ({
-          label: d.date?.slice(5) || '', // MM-DD
-          value: d.nett || 0,
-        }));
-        return <LineChart data={last14} color="#f59e0b" valueLabel="$" />;
+        const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        const last14 = ds.slice(-14).map((d: any, i: number) => {
+          const dt = new Date(d.date);
+          const dayOfWeek = dt.getDay();
+          return {
+            label: d.date?.slice(5) || '', // MM-DD
+            value: d.nett || 0,
+            isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+          };
+        });
+        const weekdayLabels = ds.slice(-14).map((d: any) => {
+          const dt = new Date(d.date);
+          return DAYS[dt.getDay()];
+        });
+        // Trimmed average: remove highest and lowest, average the rest
+        const values = last14.map(d => d.value).sort((a: number, b: number) => a - b);
+        const trimmed = values.slice(1, -1); // remove min and max
+        const avg = trimmed.reduce((s: number, v: number) => s + v, 0) / (trimmed.length || 1);
+        return <LineChart data={last14} color="#f59e0b" valueLabel="$" avgValue={avg} weekdayLabels={weekdayLabels} />;
       }
       case "pie-tender": {
         if (!tb) return null;
