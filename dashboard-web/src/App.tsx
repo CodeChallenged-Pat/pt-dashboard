@@ -123,27 +123,39 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
         {isSelected && <div className="absolute inset-0 pointer-events-none" style={{ borderRadius: `${cornerRadius}px`, background: `${color}11` }} />}
 
         {/* Header — draggable in batch mode (unless locked) */}
-        <div className={`flex items-center px-3 py-2 shrink-0 ${batchMode && !locked ? "cursor-grab active:cursor-grabbing" : ""}`}
+        <div className={`flex items-center px-3 py-2 shrink-0 relative ${batchMode && !locked ? "cursor-grab active:cursor-grabbing" : ""}`}
           style={{ borderBottom: isMinimized ? "none" : `1px solid ${color}33`, backgroundColor: headerBg || "transparent", borderTopLeftRadius: `${cornerRadius}px`, borderTopRightRadius: `${cornerRadius}px` }}
           onMouseDown={batchMode && !locked ? onHeaderDown : undefined}
           onDoubleClick={onToggleMinimize}>
-          <div className="flex items-center gap-1.5 min-w-0" style={{ flex: 1, justifyContent: titleAlign === "center" ? "center" : titleAlign === "right" ? "flex-end" : "flex-start" }}>
+          
+          {/* Left buttons (only for RIGHT alignment) */}
+          {titleAlign === "right" && (
+            <div className={`flex gap-1 z-10 ${batchMode ? "" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
+              {!batchMode && (<><button onClick={onEdit} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs">⚙️</button><DeleteButton onConfirm={onRemove} /></>)}
+              {batchMode && (<button onClick={onToggleLock} className={`w-6 h-6 flex items-center justify-center rounded text-xs transition-colors ${locked ? "bg-amber-500/20 text-amber-400" : "hover:bg-white/10 text-gray-400 hover:text-white"}`} title={locked ? "Unlock" : "Lock"}>{locked ? "🔒" : "🔓"}</button>)}
+            </div>
+          )}
+          
+          {/* Title — centered absolutely or positioned normally */}
+          <div className="flex items-center gap-1.5 min-w-0" style={titleAlign === "center" 
+            ? { position: 'absolute', left: '50%', transform: 'translateX(-50%)', zIndex: 1 }
+            : { flex: 1, justifyContent: titleAlign === "right" ? "flex-end" : "flex-start", paddingRight: titleAlign !== "right" ? 0 : undefined }
+          }>
             {!batchMode && <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ backgroundColor: color }}>{priority}</span>}
             <span className="text-xs font-semibold truncate" style={{ color: headerColor, fontFamily: headerFont }}>{title}</span>
           </div>
-          <div className={`flex gap-1 ${batchMode ? "" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
-            {batchMode && (
-              <button onClick={onToggleLock}
-                className={`w-6 h-6 flex items-center justify-center rounded text-xs transition-colors ${locked ? "bg-amber-500/20 text-amber-400" : "hover:bg-white/10 text-gray-400 hover:text-white"}`}
-                title={locked ? "Unlock" : "Lock"}>{locked ? "🔒" : "🔓"}</button>
+          
+          {/* Right buttons (for LEFT or CENTER alignment), + minimize always right */}
+          <div className="flex items-center gap-1 ml-auto z-10">
+            {titleAlign !== "right" && (
+              <div className={`flex gap-1 ${batchMode ? "" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
+                {batchMode && (<button onClick={onToggleLock} className={`w-6 h-6 flex items-center justify-center rounded text-xs transition-colors ${locked ? "bg-amber-500/20 text-amber-400" : "hover:bg-white/10 text-gray-400 hover:text-white"}`} title={locked ? "Unlock" : "Lock"}>{locked ? "🔒" : "🔓"}</button>)}
+                {!batchMode && (<><button onClick={onEdit} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs">⚙️</button><DeleteButton onConfirm={onRemove} /></>)}
+              </div>
             )}
             <button onClick={onToggleMinimize}
               className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs"
               title={isMinimized ? "Expand" : "Minimize"}>−</button>
-            {!batchMode && (<>
-              <button onClick={onEdit} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-gray-400 hover:text-white text-xs">⚙️</button>
-              <DeleteButton onConfirm={onRemove} />
-            </>)}
           </div>
         </div>
 
