@@ -330,8 +330,15 @@ export default function App() {
   const [clipboard, setClipboard] = useState<PanelConfig | null>(null);
   const [pasteCount, setPasteCount] = useState(0);
 
-  useEffect(() => { localStorage.setItem("ptdash-panels-v2", JSON.stringify(panels)); }, [panels]);
   useEffect(() => { localStorage.setItem("ptdash-gap", String(gapSize)); }, [gapSize]);
+
+  // Live observer — POSTs panel positions on every change so I can tail-f logs
+  useEffect(() => {
+    fetch("http://192.168.0.216:8000/obs/panel-state", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ts: Date.now(), cols: Object.fromEntries(panels.map(p => [p.id, {c:p.colStart,r:p.rowStart,cs:p.colSpan,rs:p.rowSpan}])) }),
+    }).catch(() => {});
+  }, [panels]);
 
   // Ctrl+C / Ctrl+V keyboard handler
   useEffect(() => {
@@ -388,39 +395,44 @@ export default function App() {
       const panel = prev.find(p => p.id === id);
       if (!panel) return prev;
       const willMinimize = !panel.isMinimized;
-      // Track original rowStart so we can restore on expand
-      const origRowStarts: Record<number, number> = {};
-      prev.forEach(p => { origRowStarts[p.id] = p.rowStart; });
-      
-      let updated = prev.map(p => p.id === id ? { ...p, isMinimized: willMinimize } : p);
       
       if (willMinimize) {
-        // Minimize: shift panels below up
-        updated = updated.map(p => {
-          if (p.id === id || p.rowStart <= panel.rowStart) return p;
-          if (p.isLocked) return p;
-          const pEnd = p.colStart + p.colSpan;
-          const mEnd = panel.colStart + panel.colSpan;
-          if (p.colStart < mEnd && pEnd > panel.colStart) {
-            const shiftRows = panel.rowSpan - 1;
-            if (shiftRows > 0) return { ...p, rowStart: Math.max(1, p.rowStart - shiftRows), _origRowStart: origRowStarts[p.id] };
+        // Minimize: save original rowStart per panel, then shift below panels up
+        const savedStarts: Record<number, number> = {};
+        prev.forEach(p => { savedStarts[p.id] = p.rowStart; });
+        return prev.map(p => {
+          if (p.id === id) return { ...p, isMinimized: true, _savedRowStart: p.rowStart };
+          // Shift panels that overlap horizontally and are directly below
+          if (p.rowStart > panel.rowStart && !p.isLocked) {
+            const overlap = p.colStart < (panel.colStart + panel.colSpan) && (p.colStart + p.colSpan) > panel.colStart;
+            if (overlap) {
+              const shift = panel.rowSpan - 1;
+              if (shift > 0) return { ...p, rowStart: Math.max(1, p.rowStart - shift), _savedRowStart: savedStarts[p.id] };
+            }
           }
           return p;
         });
       } else {
-        // Maximize: restore panels to original positions
-        updated = updated.map(p => {
-          if ((p as any)._origRowStart && p.rowStart < (p as any)._origRowStart) {
-            const restored = { ...p, rowStart: (p as any)._origRowStart };
-            delete (restored as any)._origRowStart;
-            return restored;
+        // Maximize: restore this panel + any shifted panels to their saved positions
+        return prev.map(p => {
+          const changes: Partial<Panel> = {};
+          if (p.id === id) { changes.isMinimized = false; delete (changes as any)._savedRowStart; }
+          // Restore any panel that has a saved rowStart
+          if ((p as any)._savedRowStart !== undefined) {
+            changes.rowStart = (p as any)._savedRowStart;
+            delete (changes as any)._savedRowStart;
           }
-          return p;
+          return Object.keys(changes).length > 0 ? { ...p, ...changes } : p;
         });
       }
-      return updated;
     });
   }, []);
+
+  // Clean _savedRowStart from panels before saving to localStorage
+  useEffect(() => {
+    const clean = panels.map(({ _savedRowStart, ...p }: any) => p);
+    localStorage.setItem("ptdash-panels-v2", JSON.stringify(clean));
+  }, [panels]);
 
   const cycleDock = useCallback(() => {
     setDockMode(prev => prev === 'full' ? 'right' : prev === 'right' ? 'left' : 'full');
