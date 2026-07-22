@@ -77,8 +77,10 @@ function LineChart({ data, color, valueLabel, avgValue, weekdayLabels }: {
           <line x1={pad.left} y1={pad.top + plotH - ((avgValue - minVal) / range) * plotH}
                 x2={pad.left + plotW} y2={pad.top + plotH - ((avgValue - minVal) / range) * plotH}
                 stroke="#94a3b8" strokeWidth="1" strokeDasharray="4,3" />
-          <text x={pad.left + plotW + 4} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH + 3}
-                fill="#94a3b8" fontSize="8">avg</text>
+          <rect x={pad.left + plotW / 2 - 32} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH - 16}
+                width="64" height="16" rx="3" fill="#1e293b" opacity="0.9" />
+          <text x={pad.left + plotW / 2} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH - 2}
+                textAnchor="middle" fill="#94a3b8" fontSize="7">avg ${avgValue >= 1000 ? (avgValue/1000).toFixed(1) + 'k' : avgValue.toFixed(0)}</text>
         </>
       )}
       {/* Area fill */}
@@ -96,8 +98,6 @@ function LineChart({ data, color, valueLabel, avgValue, weekdayLabels }: {
       })}
       {/* X-axis labels — day name + date */}
       {data.map((d, i) => {
-        const step = Math.max(1, Math.ceil(data.length / 7));
-        if (i % step !== 0 && i !== data.length - 1) return null;
         const x = pad.left + (i / Math.max(data.length - 1, 1)) * plotW;
         const dayName = weekdayLabels ? weekdayLabels[i] : '';
         return (
