@@ -12,6 +12,8 @@ export interface PanelConfig {
   content?: string;
   isLocked?: boolean;
   isMinimized?: boolean;
+  titleColor?: string;
+  titleFont?: string;
 }
 export interface Panel extends PanelConfig { id: number; }
 
@@ -35,8 +37,10 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
   onMove: (colStart: number, rowStart: number) => void; onEdit: () => void; onRemove: () => void;
   onToggleLock: () => void; onToggleMinimize: () => void; gridRef: React.RefObject<HTMLDivElement | null>; gapSize: number; zIndex: number;
 }) {
-  const { priority, title, colStart, rowStart, colSpan, rowSpan, cornerRadius, color, content, isLocked, isMinimized } = panel;
+  const { priority, title, colStart, rowStart, colSpan, rowSpan, cornerRadius, color, content, isLocked, isMinimized, titleColor, titleFont } = panel;
   const locked = isLocked === true;
+  const headerColor = titleColor || color;
+  const headerFont = titleFont || "inherit";
   const glowColor = color + "33";
   const resizeRef = useRef<HTMLDivElement>(null);
   const isResizing = useRef(false);
@@ -114,7 +118,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
           onMouseDown={batchMode && !locked ? onHeaderDown : undefined}>
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ backgroundColor: color }}>{priority}</span>
-            <span className="text-xs font-semibold text-gray-100 truncate">{title}</span>
+            <span className="text-xs font-semibold truncate" style={{ color: headerColor, fontFamily: headerFont }}>{title}</span>
             {locked && <span className="text-[10px] text-amber-400 shrink-0" title="Locked">🔒</span>}
             {isMinimized && <span className="text-[10px] text-gray-500 shrink-0">—</span>}
           </div>
@@ -187,7 +191,28 @@ function BatchSidebar({ panels, onApply, onClose }: {
   const [rowStart, setRowStart] = useState(panels[0]?.rowStart ?? 1);
   const [cornerRadius, setCR] = useState(panels[0]?.cornerRadius ?? 14);
   const [color, setColor] = useState(panels[0]?.color ?? "#3b82f6");
+  const [titleColor, setTitleColor] = useState(panels[0]?.titleColor || panels[0]?.color || "#3b82f6");
+  const [titleFont, setTitleFont] = useState(panels[0]?.titleFont || "");
   const COLS = ["#3b82f6","#ef4444","#10b981","#f59e0b","#8b5cf6","#06b6d4","#ec4899","#64748b","#f97316","#84cc16"];
+
+  // Theme presets
+  const [themes, setThemes] = useState<{name:string,color:string,titleColor:string,cornerRadius:number}[]>(() => {
+    try { return JSON.parse(localStorage.getItem("ptdash-themes") || "[]"); } catch { return []; }
+  });
+  const [newThemeName, setNewThemeName] = useState("");
+
+  const saveTheme = () => {
+    if (!newThemeName.trim()) return;
+    const t = { name: newThemeName, color, titleColor, cornerRadius };
+    const updated = [...themes.filter(x => x.name !== newThemeName), t];
+    setThemes(updated);
+    localStorage.setItem("ptdash-themes", JSON.stringify(updated));
+    setNewThemeName("");
+  };
+
+  const applyTheme = (t: typeof themes[0]) => {
+    setColor(t.color); setTitleColor(t.titleColor); setCR(t.cornerRadius);
+  };
 
   return (
     <div className="fixed right-0 top-0 h-full w-64 bg-gray-900/95 border-l border-gray-700 z-50 overflow-y-auto animate-slide-in backdrop-blur-sm">
@@ -210,7 +235,29 @@ function BatchSidebar({ panels, onApply, onClose }: {
         <div className="mb-3"><span className="text-[10px] text-gray-400 block mb-1">Color</span>
           <div className="flex flex-wrap gap-1 mb-1">{COLS.map(c => <button key={c} onClick={() => setColor(c)} className="w-5 h-5 rounded-full border" style={{ backgroundColor: c, borderColor: color===c?"#fff":"transparent" }} />)}</div></div>
 
-        <button onClick={() => onApply({ colStart, rowStart, colSpan, rowSpan, cornerRadius, color })}
+        {/* Title color & font */}
+        <div className="mb-2"><span className="text-[10px] text-gray-400 block mb-0.5">Title Color</span>
+          <input type="color" value={titleColor} onChange={e => setTitleColor(e.target.value)} className="w-full h-6 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></div>
+        <div className="mb-3"><span className="text-[10px] text-gray-400 block mb-0.5">Title Font</span>
+          <select value={titleFont} onChange={e => setTitleFont(e.target.value)}
+            className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-[10px]">
+            <option value="">Default</option><option value="Inter, sans-serif">Inter</option>
+            <option value="Georgia, serif">Georgia</option><option value="'Courier New', monospace">Courier</option></select></div>
+
+        {/* Themes */}
+        <div className="mb-3 border-t border-gray-700/50 pt-2">
+          <span className="text-[10px] text-gray-400 block mb-1">Themes</span>
+          {themes.length > 0 && <div className="flex flex-wrap gap-1 mb-1">{themes.map(t => (
+            <button key={t.name} onClick={() => applyTheme(t)} className="px-2 py-0.5 rounded text-[9px] border border-gray-600 hover:border-gray-400 text-gray-300"
+              style={{ borderColor: t.color }} title={t.name}>{t.name}</button>
+          ))}</div>}
+          <div className="flex gap-1">
+            <input value={newThemeName} onChange={e => setNewThemeName(e.target.value)} placeholder="Theme name" className="flex-1 bg-gray-800 text-white border border-gray-700 rounded px-1.5 py-0.5 text-[10px]" />
+            <button onClick={saveTheme} className="px-2 py-0.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-[10px]">Save</button>
+          </div>
+        </div>
+
+        <button onClick={() => onApply({ colStart, rowStart, colSpan, rowSpan, cornerRadius, color, titleColor, titleFont: titleFont || undefined })}
           className="w-full py-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded text-xs font-bold mb-2">Apply to {panels.length}</button>
 
         <div className="border-t border-gray-700/50 pt-1">{panels.map(p => <div key={p.id} className="flex items-center gap-1 py-0.5 text-[9px] text-gray-400">
@@ -364,6 +411,18 @@ export default function App() {
         </div>
       </header>
 
+      {/* Batch mode banner */}
+      {batchMode && (
+        <div className="flex items-center justify-center mb-3">
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-full px-4 py-1.5 flex items-center gap-3">
+            <span className="text-amber-400 text-xs font-medium">⚙ Batch Edit Mode</span>
+            <span className="text-gray-500 text-[10px]">shift+click to select · drag header to move · corner to resize</span>
+            <button onClick={() => { setBatchMode(false); setSelectedIds(new Set()); }}
+              className="text-gray-400 hover:text-white text-xs">✕</button>
+          </div>
+        </div>
+      )}
+
       <div ref={gridRef} className="grid"
         style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)`, gap: `${gapSize}px`, gridAutoRows: `${40 + gapSize}px`,
           marginRight: sidebarOpen ? "256px" : 0, transition: "margin-right 0.15s ease-out" }}>
@@ -383,6 +442,17 @@ export default function App() {
           <div className="flex items-center justify-between mb-4"><h2 className="text-sm font-bold text-white">Edit Panel</h2><button onClick={() => setEditPanel(null)} className="text-gray-400 hover:text-white">×</button></div>
           <label className="block mb-2"><span className="text-[10px] text-gray-400">Title</span>
             <input value={editPanel.title} onChange={e => updatePanel(editPanel.id, { title: e.target.value })} className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs" /></label>
+          <label className="block mb-2"><span className="text-[10px] text-gray-400">Title Color</span>
+            <input type="color" value={editPanel.titleColor || editPanel.color} onChange={e => updatePanel(editPanel.id, { titleColor: e.target.value })} className="w-full h-7 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></label>
+          <label className="block mb-2"><span className="text-[10px] text-gray-400">Title Font</span>
+            <select value={editPanel.titleFont || ""} onChange={e => updatePanel(editPanel.id, { titleFont: e.target.value || undefined })}
+              className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs">
+              <option value="">Default</option>
+              <option value="Inter, sans-serif">Inter</option>
+              <option value="Georgia, serif">Georgia</option>
+              <option value="'Courier New', monospace">Courier</option>
+              <option value="system-ui, sans-serif">System UI</option>
+            </select></label>
           <label className="block mb-2"><span className="text-[10px] text-gray-400">Col ({editPanel.colStart})</span>
             <input type="range" min={1} max={GRID_COLS} value={editPanel.colStart} onChange={e => updatePanel(editPanel.id, { colStart: +e.target.value })} className="w-full accent-blue-500" /></label>
           <label className="block mb-2"><span className="text-[10px] text-gray-400">Row ({editPanel.rowStart})</span>
