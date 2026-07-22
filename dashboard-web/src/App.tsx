@@ -14,6 +14,8 @@ export interface PanelConfig {
   isMinimized?: boolean;
   titleColor?: string;
   titleFont?: string;
+  headerBg?: string;
+  bodyBg?: string;
 }
 export interface Panel extends PanelConfig { id: number; }
 
@@ -37,7 +39,7 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
   onMove: (colStart: number, rowStart: number) => void; onEdit: () => void; onRemove: () => void;
   onToggleLock: () => void; onToggleMinimize: () => void; gridRef: React.RefObject<HTMLDivElement | null>; gapSize: number; zIndex: number;
 }) {
-  const { priority, title, colStart, rowStart, colSpan, rowSpan, cornerRadius, color, content, isLocked, isMinimized, titleColor, titleFont } = panel;
+  const { priority, title, colStart, rowStart, colSpan, rowSpan, cornerRadius, color, content, isLocked, isMinimized, titleColor, titleFont, headerBg, bodyBg } = panel;
   const locked = isLocked === true;
   const headerColor = titleColor || color;
   const headerFont = titleFont || "inherit";
@@ -109,12 +111,12 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
 
       {/* Card body */}
       <div className={`relative h-full border flex flex-col group-hover:shadow-lg ${isSelected ? "ring-2 ring-offset-1 ring-offset-gray-950" : ""}`}
-        style={{ backgroundColor: "#1e293b", borderRadius: `${cornerRadius}px`, borderColor: isSelected ? "#f59e0b" : color + "44", boxShadow: isSelected ? `0 0 20px ${color}66` : `0 0 12px ${glowColor}` }}>
+        style={{ backgroundColor: bodyBg || "#1e293b", borderRadius: `${cornerRadius}px`, borderColor: isSelected ? "#f59e0b" : color + "44", boxShadow: isSelected ? `0 0 20px ${color}66` : `0 0 12px ${glowColor}` }}>
         {isSelected && <div className="absolute inset-0 pointer-events-none" style={{ borderRadius: `${cornerRadius}px`, background: `${color}11` }} />}
 
         {/* Header — draggable in batch mode (unless locked) */}
         <div className={`flex items-center justify-between px-3 py-2 shrink-0 ${batchMode && !locked ? "cursor-grab active:cursor-grabbing" : ""}`}
-          style={{ borderBottom: isMinimized ? "none" : `1px solid ${color}33` }}
+          style={{ borderBottom: isMinimized ? "none" : `1px solid ${color}33`, backgroundColor: headerBg || "transparent" }}
           onMouseDown={batchMode && !locked ? onHeaderDown : undefined}>
           <div className="flex items-center gap-1.5 min-w-0">
             <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ backgroundColor: color }}>{priority}</span>
@@ -193,17 +195,19 @@ function BatchSidebar({ panels, onApply, onClose }: {
   const [color, setColor] = useState(panels[0]?.color ?? "#3b82f6");
   const [titleColor, setTitleColor] = useState(panels[0]?.titleColor || panels[0]?.color || "#3b82f6");
   const [titleFont, setTitleFont] = useState(panels[0]?.titleFont || "");
+  const [headerBg, setHeaderBg] = useState(panels[0]?.headerBg || "");
+  const [bodyBg, setBodyBg] = useState(panels[0]?.bodyBg || "");
   const COLS = ["#3b82f6","#ef4444","#10b981","#f59e0b","#8b5cf6","#06b6d4","#ec4899","#64748b","#f97316","#84cc16"];
 
   // Theme presets
-  const [themes, setThemes] = useState<{name:string,color:string,titleColor:string,cornerRadius:number}[]>(() => {
+  const [themes, setThemes] = useState<{name:string,color:string,titleColor:string,headerBg:string,bodyBg:string,cornerRadius:number}[]>(() => {
     try { return JSON.parse(localStorage.getItem("ptdash-themes") || "[]"); } catch { return []; }
   });
   const [newThemeName, setNewThemeName] = useState("");
 
   const saveTheme = () => {
     if (!newThemeName.trim()) return;
-    const t = { name: newThemeName, color, titleColor, cornerRadius };
+    const t = { name: newThemeName, color, titleColor, headerBg, bodyBg, cornerRadius };
     const updated = [...themes.filter(x => x.name !== newThemeName), t];
     setThemes(updated);
     localStorage.setItem("ptdash-themes", JSON.stringify(updated));
@@ -211,7 +215,7 @@ function BatchSidebar({ panels, onApply, onClose }: {
   };
 
   const applyTheme = (t: typeof themes[0]) => {
-    setColor(t.color); setTitleColor(t.titleColor); setCR(t.cornerRadius);
+    setColor(t.color); setTitleColor(t.titleColor); setCR(t.cornerRadius); setHeaderBg(t.headerBg); setBodyBg(t.bodyBg);
   };
 
   return (
@@ -244,6 +248,12 @@ function BatchSidebar({ panels, onApply, onClose }: {
             <option value="">Default</option><option value="Inter, sans-serif">Inter</option>
             <option value="Georgia, serif">Georgia</option><option value="'Courier New', monospace">Courier</option></select></div>
 
+        {/* Header Bg & Body Bg */}
+        <div className="mb-1"><span className="text-[10px] text-gray-400 block mb-0.5">Header Bg</span>
+          <input type="color" value={headerBg || "#1e293b"} onChange={e => setHeaderBg(e.target.value)} className="w-full h-6 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></div>
+        <div className="mb-2"><span className="text-[10px] text-gray-400 block mb-0.5">Body Bg</span>
+          <input type="color" value={bodyBg || "#1e293b"} onChange={e => setBodyBg(e.target.value)} className="w-full h-6 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></div>
+
         {/* Themes */}
         <div className="mb-3 border-t border-gray-700/50 pt-2">
           <span className="text-[10px] text-gray-400 block mb-1">Themes</span>
@@ -257,7 +267,7 @@ function BatchSidebar({ panels, onApply, onClose }: {
           </div>
         </div>
 
-        <button onClick={() => onApply({ colStart, rowStart, colSpan, rowSpan, cornerRadius, color, titleColor, titleFont: titleFont || undefined })}
+        <button onClick={() => onApply({ colStart, rowStart, colSpan, rowSpan, cornerRadius, color, titleColor, titleFont: titleFont || undefined, headerBg: headerBg || undefined, bodyBg: bodyBg || undefined })}
           className="w-full py-1.5 bg-amber-500 hover:bg-amber-400 text-black rounded text-xs font-bold mb-2">Apply to {panels.length}</button>
 
         <div className="border-t border-gray-700/50 pt-1">{panels.map(p => <div key={p.id} className="flex items-center gap-1 py-0.5 text-[9px] text-gray-400">
@@ -453,6 +463,10 @@ export default function App() {
               <option value="'Courier New', monospace">Courier</option>
               <option value="system-ui, sans-serif">System UI</option>
             </select></label>
+          <label className="block mb-2"><span className="text-[10px] text-gray-400">Header Bg</span>
+            <input type="color" value={editPanel.headerBg || "#1e293b"} onChange={e => updatePanel(editPanel.id, { headerBg: e.target.value })} className="w-full h-7 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></label>
+          <label className="block mb-2"><span className="text-[10px] text-gray-400">Body Bg</span>
+            <input type="color" value={editPanel.bodyBg || "#1e293b"} onChange={e => updatePanel(editPanel.id, { bodyBg: e.target.value })} className="w-full h-7 rounded bg-gray-800 border border-gray-700 cursor-pointer" /></label>
           <label className="block mb-2"><span className="text-[10px] text-gray-400">Col ({editPanel.colStart})</span>
             <input type="range" min={1} max={GRID_COLS} value={editPanel.colStart} onChange={e => updatePanel(editPanel.id, { colStart: +e.target.value })} className="w-full accent-blue-500" /></label>
           <label className="block mb-2"><span className="text-[10px] text-gray-400">Row ({editPanel.rowStart})</span>
