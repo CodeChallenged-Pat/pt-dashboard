@@ -143,6 +143,37 @@ function BarChart({ data, color, valueLabel }: {
   );
 }
 
+// 3b. ColumnChart — vertical bars (SVG) for hourly traffic
+function ColumnChart({ data, color }: {
+  data: { label: string; value: number }[]; color: string;
+}) {
+  if (!data.length) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No data</div>;
+  const W = 400, H = 180;
+  const pad = { top: 10, right: 10, bottom: 32, left: 10 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+  const maxVal = Math.max(...data.map(d => d.value), 1);
+  const barW = (plotW / data.length) * 0.7;
+  const gap = (plotW / data.length) * 0.3;
+  const labelStep = Math.max(1, Math.ceil(data.length / 14));
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none">
+      <rect x={pad.left} y={pad.top} width={plotW} height={plotH} fill="#1e293b" rx="4" opacity="0.5" />
+      {data.map((d, i) => {
+        const barH = (d.value / maxVal) * plotH;
+        const x = pad.left + i * (plotW / data.length) + gap / 2;
+        const y = pad.top + plotH - barH;
+        return <rect key={i} x={x} y={y} width={barW} height={barH} rx="1" fill={color} opacity="0.8" />;
+      })}
+      {data.map((d, i) => {
+        if (i % labelStep !== 0 && i !== data.length - 1) return null;
+        const x = pad.left + i * (plotW / data.length) + (plotW / data.length) / 2;
+        return <text key={`l-${i}`} x={x} y={H - 5} textAnchor="middle" fill="#64748b" fontSize="6">{d.label}</text>;
+      })}
+    </svg>
+  );
+}
+
 // 4. PieChart — SVG circle segments
 function PieChart({ data }: {
   data: { label: string; value: number; color: string }[];
@@ -262,7 +293,7 @@ const DEFAULT_PANELS: Panel[] = [
   { id: 3, priority: 3, title: "This Week",         colStart: 9,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 14, color: "#10b981", chartType: "stat-week" },
   { id: 4, priority: 4, title: "Daily Sales (14d)", colStart: 1,  rowStart: 4, colSpan: 6, rowSpan: 5, cornerRadius: 14, color: "#f59e0b", chartType: "line-daily-sales" },
   { id: 5, priority: 5, title: "Tender Breakdown",  colStart: 7,  rowStart: 4, colSpan: 3, rowSpan: 5, cornerRadius: 14, color: "#ec4899", chartType: "pie-tender" },
-  { id: 6, priority: 6, title: "Hourly Traffic",    colStart: 10, rowStart: 4, colSpan: 3, rowSpan: 5, cornerRadius: 14, color: "#06b6d4", chartType: "line-hourly" },
+  { id: 6, priority: 6, title: "Hourly Traffic",    colStart: 10, rowStart: 4, colSpan: 3, rowSpan: 5, cornerRadius: 14, color: "#06b6d4", chartType: "bar-hourly" },
   { id: 7, priority: 7, title: "Clerk Performance", colStart: 1,  rowStart: 9, colSpan: 5, rowSpan: 5, cornerRadius: 14, color: "#8b5cf6", chartType: "bar-clerks" },
   { id: 8, priority: 8, title: "Clerk Details",     colStart: 6,  rowStart: 9, colSpan: 7, rowSpan: 5, cornerRadius: 14, color: "#ef4444", chartType: "table-clerks" },
 ];
@@ -875,13 +906,16 @@ export default function App() {
         }));
         return <PieChart data={data} />;
       }
-      case "line-hourly": {
+      case "bar-hourly": {
         if (!ht) return null;
-        const data = ht.map((d: any) => ({
-          label: `${d.hour}:00`,
-          value: d.avg_transactions || 0,
-        }));
-        return <LineChart data={data} color="#06b6d4" />;
+        const bars: { label: string; value: number; showLabel?: boolean }[] = [];
+        for (const h of ht) {
+          if (h.hour < 7 || h.hour > 21) continue;
+          const half = (h.avg_transactions || 0) / 2;
+          bars.push({ label: `${h.hour}`, value: half, showLabel: true });
+          bars.push({ label: "", value: half });
+        }
+        return <ColumnChart data={bars} color="#06b6d4" />;
       }
       case "bar-clerks": {
         if (!cp) return null;
