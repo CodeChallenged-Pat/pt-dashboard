@@ -128,10 +128,8 @@ function DashboardPanel({ panel, isSelected, batchMode, onClick, onResize, onMov
           onMouseDown={batchMode && !locked ? onHeaderDown : undefined}
           onDoubleClick={onToggleMinimize}>
           <div className="flex items-center gap-1.5 min-w-0">
-            <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ backgroundColor: color }}>{priority}</span>
-            <span className="text-xs font-semibold truncate" style={{ color: headerColor, fontFamily: headerFont, textAlign: ta as any, flex: 1 }}>{title}</span>
-            {locked && <span className="text-[10px] text-amber-400 shrink-0" title="Locked">🔒</span>}
-            {isMinimized && <span className="text-[10px] text-gray-500 shrink-0">—</span>}
+            {!batchMode && <span className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ backgroundColor: color }}>{priority}</span>}
+            <span className="text-xs font-semibold truncate" style={{ color: headerColor, fontFamily: headerFont, textAlign: ta as any, flex: 1, overflow: 'hidden' }}>{title}</span>
           </div>
           <div className={`flex gap-1 ${batchMode ? "" : "opacity-0 group-hover:opacity-100"} transition-opacity`}>
             {batchMode && (
