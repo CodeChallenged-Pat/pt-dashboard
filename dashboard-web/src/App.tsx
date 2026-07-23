@@ -216,13 +216,18 @@ function ColumnChart({ data, color }: {
         );
       })}
       {/* Cursor tooltip */}
-      {cX !== null && cX >= pad.left && cX <= pad.left + plotW && (
+      {cX !== null && cX >= pad.left && cX <= pad.left + plotW && (() => {
+        const step = plotW / data.length;
+        const idx = Math.max(0, Math.min(data.length - 1, Math.floor((cX - pad.left) / step)));
+        const bar = data[idx];
+        return (
         <g>
           <line x1={cX} y1={pad.top} x2={cX} y2={pad.top + plotH} stroke="#94a3b8" strokeWidth="1" strokeDasharray="3,2" />
           <rect x={Math.min(cX+6, pad.left+plotW-60)} y={pad.top+2} width="54" height="16" rx="3" fill="#0f172a" opacity="0.9" />
-          <text x={Math.min(cX+9, pad.left+plotW-57)} y={pad.top+12} fill="#e2e8f0" fontSize="8" fontWeight="bold">x</text>
+          <text x={Math.min(cX+9, pad.left+plotW-57)} y={pad.top+12} fill="#e2e8f0" fontSize="8" fontWeight="bold">{bar.value.toFixed(1)}</text>
         </g>
-      )}
+        );
+      })()}
     </svg>
   );
 }
