@@ -1115,8 +1115,8 @@ export default function App() {
             <label className="flex items-center gap-1 text-[10px] text-gray-400">Gap
             <input type="range" min={4} max={32} step={4} value={gapSize} onChange={e => setGapSize(+e.target.value)} className="w-12 accent-blue-500" /></label>
             <button onClick={scatterPanels} className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded text-xs font-medium" title="Auto-layout panels so none overlap">↔ Scatter</button>
-            <button onClick={addPanel} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium">+ Panel</button>
           </>)}
+          <button onClick={() => addPanel()} className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded text-xs font-medium">+ Panel</button>
           <button onClick={cycleDock}
             className={`w-9 h-9 flex items-center justify-center rounded text-sm ${dockMode !== 'full' ? "bg-blue-500/20 text-blue-400" : "bg-gray-800 text-gray-400 hover:text-white"}`}
             title={`Dock: ${dockMode === 'full' ? 'Full screen' : dockMode === 'right' ? 'Docked right' : 'Docked left'} — click to cycle`}>⊞</button>
