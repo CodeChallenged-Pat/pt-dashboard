@@ -340,10 +340,23 @@ export interface PanelConfig {
   bodyBg?: string;
   borderWidth?: number;
   titleAlign?: string;
+  refreshInterval?: number; // seconds, 0 = manual refresh only
 }
 export interface Panel extends PanelConfig { id: number; }
 
 const GRID_COLS = 12;
+
+// ── Panel Library — available panel types for Add Panel ──
+const PANEL_LIBRARY: { name: string; chartType: string; color: string; desc: string; span: [number, number] }[] = [
+  { name: "Stat Card",       chartType: "stat-today",      color: "#3b82f6", desc: "Today's sales with date navigation",        span: [4, 3] },
+  { name: "Yesterday Stat",  chartType: "stat-yesterday",   color: "#64748b", desc: "Yesterday's sales summary",                  span: [4, 3] },
+  { name: "Week to Date",    chartType: "stat-week",        color: "#10b981", desc: "Week-to-date sales total",                   span: [4, 3] },
+  { name: "Daily Sales",     chartType: "line-daily-sales", color: "#f59e0b", desc: "14-day line chart with avg + weekends",       span: [6, 5] },
+  { name: "Tender Breakdown",chartType: "pie-tender",       color: "#ec4899", desc: "Pie chart of payment methods",                span: [3, 5] },
+  { name: "Hourly Traffic",  chartType: "bar-hourly",       color: "#06b6d4", desc: "Half-hour bar chart with customers + avg $",  span: [3, 5] },
+  { name: "Clerk Security",  chartType: "table-security",   color: "#8b5cf6", desc: "Cancels, no-sales, refunds per clerk",        span: [5, 5] },
+  { name: "Clerk Details",   chartType: "table-clerks",     color: "#ef4444", desc: "Staff performance table",                     span: [7, 5] },
+];
 
 const DEFAULT_PANELS: Panel[] = [
   { id: 1, priority: 1, title: "Today's Sales",    colStart: 1,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 16, color: "#3b82f6", chartType: "stat-today" },
@@ -684,6 +697,10 @@ function EditPanel({ panel, onClose, onUpdate }: { panel: Panel; onClose: () => 
       <label className="block mb-2"><span className="text-[10px] text-gray-400">Title Align</span>
         <select defaultValue={panel.titleAlign || "left"} onChange={e => onUpdate({ titleAlign: e.target.value })} className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs">
           <option value="left">Left</option><option value="center">Center</option><option value="right">Right</option></select></label>
+      <label className="block mb-2"><span className="text-[10px] text-gray-400">Refresh (seconds, 0=off)</span>
+        <input type="number" min={0} max={3600} step={5} defaultValue={panel.refreshInterval || 0}
+          onChange={e => onUpdate({ refreshInterval: +e.target.value })}
+          className="w-full bg-gray-800 text-white border border-gray-700 rounded px-2 py-1 text-xs" /></label>
     </div>
   );
 }
@@ -873,10 +890,24 @@ export default function App() {
     setDockMode(prev => prev === 'full' ? 'right' : prev === 'right' ? 'left' : 'full');
   }, []);
 
-  const addPanel = useCallback(() => {
+  const [showAdd, setShowAdd] = useState(false);
+
+  const addPanel = useCallback((libItem?: typeof PANEL_LIBRARY[0]) => {
+    if (!libItem) { setShowAdd(true); return; }
     const maxId = panels.reduce((m, p) => Math.max(m, p.id), 0);
     const maxP = panels.reduce((m, p) => Math.max(m, p.priority), 0);
-    setPanels(prev => [...prev, { id: maxId+1, priority: maxP+1, title: `Panel ${maxId+1}`, colStart: 1, rowStart: 1, colSpan: 2, rowSpan: 2, cornerRadius: 14, color: `hsl(${Math.random()*360},70%,55%)`, content: "✨" }]);
+    // Find a free position
+    let cs = 1, rs = 1;
+    const occupied = new Set(panels.map(p => `${p.colStart},${p.rowStart}`));
+    while (occupied.has(`${cs},${rs}`)) { cs++; if (cs > GRID_COLS - libItem.span[0] + 1) { cs = 1; rs++; } }
+    setPanels(prev => [...prev, {
+      id: maxId+1, priority: maxP+1,
+      title: libItem.name, colStart: cs, rowStart: rs,
+      colSpan: libItem.span[0], rowSpan: libItem.span[1],
+      cornerRadius: 14, color: libItem.color,
+      chartType: libItem.chartType,
+    }]);
+    setShowAdd(false);
   }, [panels]);
 
   const scatterPanels = useCallback(() => {
@@ -1124,6 +1155,28 @@ export default function App() {
       {editPanel && !batchMode && (
         <EditPanel key={editPanel.id} panel={editPanel} onClose={() => setEditPanel(null)} onUpdate={(ch) => updatePanel(editPanel.id, ch)} />
       )}
+
+      {/* ── Add Panel Dialog ── */}
+      {showAdd && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60" onClick={() => setShowAdd(false)}>
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 w-[520px] max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            <h3 className="text-sm font-semibold text-gray-200 mb-3">Add Panel</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {PANEL_LIBRARY.map(item => (
+                <button key={item.chartType} onClick={() => addPanel(item)}
+                  className="text-left p-3 rounded-lg border border-gray-800 hover:border-gray-600 hover:bg-gray-800/50 transition-colors">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                    <span className="text-sm font-medium text-gray-200">{item.name}</span>
+                  </div>
+                  <div className="text-[11px] text-gray-500 ml-5">{item.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`@keyframes slideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}.animate-slide-in{animation:slideIn .15s ease-out}`}</style>
     </div>
   );
