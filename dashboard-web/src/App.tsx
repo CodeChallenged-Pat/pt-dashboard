@@ -45,10 +45,23 @@ function LineChart({ data, color, valueLabel, avgValue, weekdayLabels }: {
   }).join(' ');
 
   const yTicks = 4;
+  const [cursorX, setCursorX] = React.useState<number | null>(null);
+  const svgRef = React.useRef<SVGSVGElement>(null);
+  const getSVGX = (clientX: number) => {
+    if (!svgRef.current) return 0;
+    const rect = svgRef.current.getBoundingClientRect();
+    return (clientX - rect.left) * (W / rect.width);
+  };
+  const cursorIdx = cursorX !== null
+    ? Math.max(0, Math.min(data.length - 1, Math.round((cursorX - pad.left) / (plotW / (data.length - 1)))))
+    : data.length - 1;
+  const cursorData = data[cursorIdx];
   const xStep = data.length / plotW; // items per pixel
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="xMidYMid meet">
+    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none"
+      onMouseMove={e => setCursorX(getSVGX(e.clientX))}
+      onMouseLeave={() => setCursorX(null)}>
       {/* Chart area background */}
       <rect x={pad.left} y={pad.top} width={plotW} height={plotH} fill="#1e293b" rx="4" opacity="0.5" />
 
@@ -111,6 +124,17 @@ function LineChart({ data, color, valueLabel, avgValue, weekdayLabels }: {
           </g>
         );
       })}
+      {/* Cursor */}
+      {cursorX !== null && cursorX >= pad.left && cursorX <= pad.left + plotW && (
+        <g>
+          <line x1={cursorX} y1={pad.top} x2={cursorX} y2={pad.top + plotH} stroke="#94a3b8" strokeWidth="1" strokeDasharray="3,2" />
+          <rect x={Math.min(cursorX + 6, pad.left + plotW - 64)} y={pad.top + 2} width="64" height="22" rx="3" fill="#0f172a" opacity="0.9" />
+          <text x={Math.min(cursorX + 10, pad.left + plotW - 60)} y={pad.top + 11} fill="#e2e8f0" fontSize="8" fontWeight="bold">
+            ${cursorData.value >= 1000 ? (cursorData.value/1000).toFixed(1)+'k' : cursorData.value.toFixed(0)}
+          </text>
+          <text x={Math.min(cursorX + 10, pad.left + plotW - 60)} y={pad.top + 20} fill="#64748b" fontSize="7">{cursorData.label}</text>
+        </g>
+      )}
     </svg>
   );
 }
@@ -155,10 +179,14 @@ function ColumnChart({ data, color }: {
   const maxVal = Math.max(...data.map(d => d.value), 1);
   const barW = (plotW / data.length) * 0.7;
   const barGap = (plotW / data.length) * 0.3;
-  // Show labels only on every 2nd bar (hour labels, not half-hour)
   const labelStep = 2;
+  const [cX, setCX] = React.useState<number | null>(null);
+  const colRef = React.useRef<SVGSVGElement>(null);
+  const getX = (cx: number) => { if (!colRef.current) return 0; const r = colRef.current.getBoundingClientRect(); return (cx - r.left) * (W / r.width); };
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none">
+    <svg ref={colRef} viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none"
+      onMouseMove={e => setCX(getX(e.clientX))}
+      onMouseLeave={() => setCX(null)}>
       <rect x={pad.left} y={pad.top} width={plotW} height={plotH} fill="#1e293b" rx="4" opacity="0.5" />
       {/* Row labels on left */}
       <text x={4} y={H - 32} textAnchor="start" fill="#64748b" fontSize="7">Hr</text>
@@ -187,6 +215,14 @@ function ColumnChart({ data, color }: {
           </g>
         );
       })}
+      {/* Cursor tooltip */}
+      {cX !== null && cX >= pad.left && cX <= pad.left + plotW && (
+        <g>
+          <line x1={cX} y1={pad.top} x2={cX} y2={pad.top + plotH} stroke="#94a3b8" strokeWidth="1" strokeDasharray="3,2" />
+          <rect x={Math.min(cX+6, pad.left+plotW-60)} y={pad.top+2} width="54" height="16" rx="3" fill="#0f172a" opacity="0.9" />
+          <text x={Math.min(cX+9, pad.left+plotW-57)} y={pad.top+12} fill="#e2e8f0" fontSize="8" fontWeight="bold">x</text>
+        </g>
+      )}
     </svg>
   );
 }
