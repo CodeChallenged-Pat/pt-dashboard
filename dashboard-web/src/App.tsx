@@ -4,16 +4,17 @@ import React, { useState, useCallback, useEffect, useRef, ReactNode } from "reac
 //  Chart Components
 // ═══════════════════════════════════════════════
 
-// 1. StatCard — large number + label + delta indicator
-function StatCard({ value, label, delta, deltaLabel, color }: {
-  value: string; label: string; delta?: number; deltaLabel?: string; color: string;
+// 1. StatCard — large number + label + date line + delta indicator
+function StatCard({ value, label, dateLabel, delta, deltaLabel, color }: {
+  value: string; label: string; dateLabel?: string; delta?: number; deltaLabel?: string; color: string;
 }) {
   const isPositive = delta !== undefined && delta >= 0;
   const deltaStr = delta !== undefined ? `${isPositive ? '▲' : '▼'} ${Math.abs(delta).toFixed(1)}%` : '';
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-1.5">
+    <div className="flex flex-col items-center justify-center h-full gap-0.5">
       <div className="text-4xl font-bold tracking-tight" style={{ color }}>{value}</div>
       <div className="text-xs text-gray-400 uppercase tracking-wider">{label}</div>
+      {dateLabel && <div className="text-[10px] text-gray-500">{dateLabel}</div>}
       {delta !== undefined && (
         <div className={`text-xs font-semibold ${isPositive ? 'text-green-400' : 'text-red-400'}`}>
           {deltaStr} {deltaLabel && <span className="text-gray-500 font-normal">vs {deltaLabel}</span>}
@@ -30,7 +31,7 @@ function LineChart({ data, color, valueLabel, avgValue, weekdayLabels }: {
 }) {
   if (!data.length) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No data</div>;
   const W = 400, H = 240;
-  const pad = { top: 15, right: 8, bottom: 36, left: 40 };
+  const pad = { top: 15, right: 40, bottom: 36, left: 35 };
   const plotW = W - pad.left - pad.right;
   const plotH = H - pad.top - pad.bottom;
   const maxVal = Math.max(...data.map(d => d.value), Math.max(avgValue || 0, 1));
@@ -77,12 +78,11 @@ function LineChart({ data, color, valueLabel, avgValue, weekdayLabels }: {
           <line x1={pad.left} y1={pad.top + plotH - ((avgValue - minVal) / range) * plotH}
                 x2={pad.left + plotW} y2={pad.top + plotH - ((avgValue - minVal) / range) * plotH}
                 stroke="#94a3b8" strokeWidth="1" strokeDasharray="4,3" />
-          <rect x={pad.left + plotW - 44} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH - 10}
-                width="44" height="20" rx="3" fill="#0f172a" opacity="0.85" />
-          <text x={pad.left + plotW - 4} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH - 2}
-                textAnchor="end" fill="#64748b" fontSize="7">avg</text>
-          <text x={pad.left + plotW - 4} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH + 7}
-                textAnchor="end" fill="#94a3b8" fontSize="8" fontWeight="bold">
+          {/* Avg label — outside chart, in right margin */}
+          <text x={pad.left + plotW + 4} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH - 2}
+                textAnchor="start" fill="#64748b" fontSize="7">avg</text>
+          <text x={pad.left + plotW + 4} y={pad.top + plotH - ((avgValue - minVal) / range) * plotH + 7}
+                textAnchor="start" fill="#94a3b8" fontSize="8" fontWeight="bold">
             ${avgValue >= 1000 ? (avgValue/1000).toFixed(1) + 'k' : avgValue.toFixed(0)}
           </text>
         </>
@@ -143,32 +143,49 @@ function BarChart({ data, color, valueLabel }: {
   );
 }
 
-// 3b. ColumnChart — vertical bars (SVG) for hourly traffic
+// 3b. ColumnChart — vertical bars with tooltips
 function ColumnChart({ data, color }: {
-  data: { label: string; value: number }[]; color: string;
+  data: { label: string; value: number; sub?: string; sub2?: string }[]; color: string;
 }) {
   if (!data.length) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">No data</div>;
-  const W = 400, H = 180;
-  const pad = { top: 10, right: 10, bottom: 32, left: 10 };
+  const W = 420, H = 210;
+  const pad = { top: 10, right: 12, bottom: 50, left: 36 };
   const plotW = W - pad.left - pad.right;
   const plotH = H - pad.top - pad.bottom;
   const maxVal = Math.max(...data.map(d => d.value), 1);
   const barW = (plotW / data.length) * 0.7;
-  const gap = (plotW / data.length) * 0.3;
-  const labelStep = Math.max(1, Math.ceil(data.length / 14));
+  const barGap = (plotW / data.length) * 0.3;
+  // Show labels only on every 2nd bar (hour labels, not half-hour)
+  const labelStep = 2;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none">
       <rect x={pad.left} y={pad.top} width={plotW} height={plotH} fill="#1e293b" rx="4" opacity="0.5" />
+      {/* Row labels on left */}
+      <text x={4} y={H - 32} textAnchor="start" fill="#64748b" fontSize="7">Hr</text>
+      <text x={4} y={H - 20} textAnchor="start" fill="#64748b" fontSize="7">Cust</text>
+      <text x={4} y={H - 9} textAnchor="start" fill="#64748b" fontSize="7">Avg</text>
       {data.map((d, i) => {
         const barH = (d.value / maxVal) * plotH;
-        const x = pad.left + i * (plotW / data.length) + gap / 2;
+        const x = pad.left + i * (plotW / data.length) + barGap / 2;
         const y = pad.top + plotH - barH;
-        return <rect key={i} x={x} y={y} width={barW} height={barH} rx="1" fill={color} opacity="0.8" />;
+        const tip = d.sub && d.sub2 ? `${d.label}:00 - Customers: ${d.sub} - Avg Sale: ${d.sub2}` : d.label;
+        return (
+          <g key={i}>
+            <title>{tip}</title>
+            <rect x={x} y={y} width={barW} height={Math.max(barH, 1)} rx="1" fill={color} opacity="0.8" />
+          </g>
+        );
       })}
       {data.map((d, i) => {
-        if (i % labelStep !== 0 && i !== data.length - 1) return null;
-        const x = pad.left + i * (plotW / data.length) + (plotW / data.length) / 2;
-        return <text key={`l-${i}`} x={x} y={H - 5} textAnchor="middle" fill="#64748b" fontSize="6">{d.label}</text>;
+        if (i % labelStep !== 0) return null;
+        const x = pad.left + i * (plotW / data.length) + (plotW / data.length);
+        return (
+          <g key={`lab-${i}`}>
+            <text x={x} y={H - 32} textAnchor="middle" fill="#94a3b8" fontSize="8" fontWeight="bold">{d.label}</text>
+            {d.sub && <text x={x} y={H - 20} textAnchor="middle" fill="#64748b" fontSize="7">{d.sub}</text>}
+            {d.sub2 && <text x={x} y={H - 9} textAnchor="middle" fill="#64748b" fontSize="7">{d.sub2}</text>}
+          </g>
+        );
       })}
     </svg>
   );
@@ -659,13 +676,16 @@ const SITE_ID = 3;
 
 export default function App() {
   const [panels, setPanels] = useState<Panel[]>(() => {
-    const s = localStorage.getItem("ptdash-panels-v3");
+    const s = localStorage.getItem("ptdash-panels-v4");
     return s ? JSON.parse(s) : DEFAULT_PANELS;
   });
   const [editPanel, setEditPanel] = useState<Panel | null>(null);
   const [gapSize, setGapSize] = useState(() => { const s = localStorage.getItem("ptdash-gap"); return s ? +s : 12; });
   const [batchMode, setBatchMode] = useState(false);
   const [dockMode, setDockMode] = useState<'full' | 'left' | 'right'>('full');
+  // Date navigation for stat cards
+  const [dayOffset, setDayOffset] = useState(0);
+  const [dayOffset2, setDayOffset2] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [zCounter, setZCounter] = useState(0);
   const [panelZIndex, setPanelZIndex] = useState<Record<number, number>>({});
@@ -805,7 +825,7 @@ export default function App() {
   // Clean _savedRowStart from panels before saving to localStorage
   useEffect(() => {
     const clean = panels.map(({ _savedRowStart, ...p }: any) => p);
-    localStorage.setItem("ptdash-panels-v3", JSON.stringify(clean));
+    localStorage.setItem("ptdash-panels-v4", JSON.stringify(clean));
   }, [panels]);
 
   const cycleDock = useCallback(() => {
@@ -852,6 +872,17 @@ export default function App() {
     setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
   }, []);
 
+  // ── Format day label for date navigation ──
+  function formatDayLabel(offset: number): string {
+    if (offset === 0) return "Today's Sales";
+    if (offset === 1) return "Yesterday";
+    const months = Math.floor(offset / 30);
+    const days = offset % 30;
+    if (months === 0) return `${offset} days ago`;
+    if (days === 0) return months === 1 ? "1 month ago" : `${months} months ago`;
+    return `${months} month${months>1?'s':''} and ${days} day${days>1?'s':''} ago`;
+  }
+
   // ── Render chart content for each panel type ──
   const renderChart = useCallback((chartType: string | undefined): ReactNode => {
     if (metricsLoading) return <div className="flex items-center justify-center h-full text-gray-500 text-xs">Loading metrics...</div>;
@@ -866,11 +897,48 @@ export default function App() {
 
     switch (chartType) {
       case "stat-today": {
-        if (!s) return null;
-        const today = s.today?.sales || 0;
-        const yesterday = s.yesterday?.sales || 1;
-        const delta = yesterday > 0 ? ((today - yesterday) / yesterday) * 100 : today > 0 ? 100 : 0;
-        return <StatCard value={`$${today.toLocaleString(undefined, {minimumFractionDigits:0,maximumFractionDigits:0})}`} label="Today's Sales" delta={delta} deltaLabel="yesterday" color="#3b82f6" />;
+        if (!s || !ds) return null;
+        const dates = ds.slice(); // keeps original order (oldest first)
+        const idx = dayOffset;
+        const dayData = idx < dates.length ? dates[dates.length - 1 - idx] : null;
+        const dayValue = dayData ? dayData.nett || 0 : 0;
+        const label = formatDayLabel(dayOffset);
+        const dateStr = dayData ? new Date(dayData.date).toLocaleDateString('en-NZ', {day:'numeric', month:'short', year:'numeric'}) : '';
+        const calendarMax = dates.length > 0 ? dates[dates.length - 1].date : '';
+        const calendarMin = dates.length > 0 ? dates[0].date : '';
+        return (
+          <div className="flex flex-col h-full relative">
+            {/* Top-left: calendar + double-arrow back to today */}
+            <div className="absolute top-1 left-1 flex items-center gap-0.5">
+              <span className="relative">
+                <input type="date" min={calendarMin} max={calendarMax}
+                  className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  id="datepicker-main"
+                  onChange={e => {
+                    if (!e.target.value) return;
+                    const picked = new Date(e.target.value);
+                    let best = 0;
+                    for (let i = dates.length - 1; i >= 0; i--) {
+                      const d = new Date(dates[i].date);
+                      if (d <= picked) { best = dates.length - 1 - i; break; }
+                    }
+                    setDayOffset(best);
+                  }}
+                />
+                <span className="text-gray-500 hover:text-gray-300 cursor-pointer text-sm" title="Pick date">📅</span>
+              </span>
+              {dayOffset > 0 && (
+                <button onClick={() => setDayOffset(0)} className="text-gray-500 hover:text-gray-300 text-xs px-0.5" title="Back to today">»</button>
+              )}
+            </div>
+            {/* Top-right: arrows */}
+            <div className="absolute top-1 right-1 flex items-center gap-0.5">
+              <button onClick={() => setDayOffset(o => Math.min(o + 1, dates.length - 1))} className="text-gray-500 hover:text-gray-300 text-xs px-0.5" title="Previous day">◀</button>
+              <button onClick={() => setDayOffset(o => Math.max(0, o - 1))} className="text-gray-500 hover:text-gray-300 text-xs px-0.5" title="Next day">▶</button>
+            </div>
+            <StatCard value={`$${dayValue.toLocaleString(undefined, {minimumFractionDigits:0,maximumFractionDigits:0})}`} label={label} dateLabel={dateStr} color="#3b82f6" />
+          </div>
+        );
       }
       case "stat-yesterday": {
         if (!s) return null;
@@ -915,13 +983,18 @@ export default function App() {
         }));
         return <PieChart data={data} />;
       }
-      case "bar-hourly": {
+      case "bar-hourly":
+      case "table-hourly": {
         if (!ht) return null;
-        const bars: { label: string; value: number; showLabel?: boolean }[] = [];
+        // Half-hour bars (7am-9:30pm), bar height = customers per half-hour
+        // Each hour pair gets customer count + avg sale as sub labels
+        const bars: { label: string; value: number; sub?: string; sub2?: string }[] = [];
         for (const h of ht) {
           if (h.hour < 7 || h.hour > 21) continue;
-          const half = (h.avg_transactions || 0) / 2;
-          bars.push({ label: `${h.hour}`, value: half, showLabel: true });
+          const half = (h.avg_customers || 0) / 2;
+          const cust = Math.round(h.avg_customers || 0);
+          const avg = (h.avg_sales || 0) >= 100 ? '$' + (h.avg_sales || 0).toFixed(0) : '$' + (h.avg_sales || 0).toFixed(2);
+          bars.push({ label: `${h.hour}`, value: half, sub: `${cust}`, sub2: avg });
           bars.push({ label: "", value: half });
         }
         return <ColumnChart data={bars} color="#06b6d4" />;
@@ -955,7 +1028,7 @@ export default function App() {
       default:
         return null;
     }
-  }, [metrics, metricsLoading]);
+  }, [metrics, metricsLoading, dayOffset]);
 
   const sorted = [...panels].sort((a, b) => a.priority - b.priority);
   const selectedPanels = panels.filter(p => selectedIds.has(p.id));
