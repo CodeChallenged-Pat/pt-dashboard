@@ -349,8 +349,8 @@ const GRID_COLS = 12;
 // ── Panel Library — available panel types for Add Panel ──
 const PANEL_LIBRARY: { name: string; chartType: string; color: string; desc: string; span: [number, number] }[] = [
   { name: "Stat Card",       chartType: "stat-today",      color: "#3b82f6", desc: "Today's sales with date navigation",        span: [4, 3] },
-  { name: "Yesterday Stat",  chartType: "stat-yesterday",   color: "#64748b", desc: "Yesterday's sales summary",                  span: [4, 3] },
-  { name: "Week to Date",    chartType: "stat-week",        color: "#10b981", desc: "Week-to-date sales total",                   span: [4, 3] },
+  { name: "Month to Date",   chartType: "stat-month",       color: "#f97316", desc: "Sales from 1st of month to today",           span: [4, 3] },
+  { name: "Week to Date",    chartType: "stat-week",        color: "#10b981", desc: "Week-to-date sales total (Mon-Sun)",          span: [4, 3] },
   { name: "Daily Sales",     chartType: "line-daily-sales", color: "#f59e0b", desc: "14-day line chart with avg + weekends",       span: [6, 5] },
   { name: "Tender Breakdown",chartType: "pie-tender",       color: "#ec4899", desc: "Pie chart of payment methods",                span: [3, 5] },
   { name: "Hourly Traffic",  chartType: "bar-hourly",       color: "#06b6d4", desc: "Half-hour bar chart with customers + avg $",  span: [3, 5] },
@@ -360,7 +360,7 @@ const PANEL_LIBRARY: { name: string; chartType: string; color: string; desc: str
 
 const DEFAULT_PANELS: Panel[] = [
   { id: 1, priority: 1, title: "Today's Sales",    colStart: 1,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 16, color: "#3b82f6", chartType: "stat-today" },
-  { id: 2, priority: 2, title: "Yesterday",         colStart: 5,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 14, color: "#64748b", chartType: "stat-yesterday" },
+  { id: 2, priority: 2, title: "Month to date",   colStart: 5,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 14, color: "#f97316", chartType: "stat-month" },
   { id: 3, priority: 3, title: "Week to date",     colStart: 9,  rowStart: 1, colSpan: 4, rowSpan: 3, cornerRadius: 14, color: "#10b981", chartType: "stat-week" },
   { id: 4, priority: 4, title: "Daily Sales (14d)", colStart: 1,  rowStart: 4, colSpan: 6, rowSpan: 5, cornerRadius: 14, color: "#f59e0b", chartType: "line-daily-sales" },
   { id: 5, priority: 5, title: "Tender Breakdown",  colStart: 7,  rowStart: 4, colSpan: 3, rowSpan: 5, cornerRadius: 14, color: "#ec4899", chartType: "pie-tender" },
@@ -714,6 +714,7 @@ interface MetricsData {
     today: { sales: number; transactions: number };
     yesterday: { sales: number; transactions: number };
     week: { sales: number; transactions: number };
+    month: { sales: number; transactions: number };
     active_clerks: number;
     cancels_today: number;
   } | null;
@@ -734,7 +735,7 @@ const SITE_ID = 3;
 
 export default function App() {
   const [panels, setPanels] = useState<Panel[]>(() => {
-    const s = localStorage.getItem("ptdash-panels-v4");
+    const s = localStorage.getItem("ptdash-panels-v5");
     return s ? JSON.parse(s) : DEFAULT_PANELS;
   });
   const [editPanel, setEditPanel] = useState<Panel | null>(null);
@@ -883,7 +884,7 @@ export default function App() {
   // Clean _savedRowStart from panels before saving to localStorage
   useEffect(() => {
     const clean = panels.map(({ _savedRowStart, ...p }: any) => p);
-    localStorage.setItem("ptdash-panels-v4", JSON.stringify(clean));
+    localStorage.setItem("ptdash-panels-v5", JSON.stringify(clean));
   }, [panels]);
 
   const cycleDock = useCallback(() => {
@@ -1012,9 +1013,9 @@ export default function App() {
           </div>
         );
       }
-      case "stat-yesterday": {
+      case "stat-month": {
         if (!s) return null;
-        return <StatCard value={`$${(s.yesterday?.sales || 0).toLocaleString(undefined, {minimumFractionDigits:0,maximumFractionDigits:0})}`} label="Yesterday" color="#64748b" />;
+        return <StatCard value={`$${(s.month?.sales || 0).toLocaleString(undefined, {minimumFractionDigits:0,maximumFractionDigits:0})}`} label="Month to date" color="#f97316" />;
       }
       case "stat-week": {
         if (!s) return null;
